@@ -1,0 +1,8 @@
+.vscode/
+__pycache__/
+.venv*
+venv/
+lib64/
+lib/
+*.pyc
+*.log

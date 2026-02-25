@@ -1,0 +1,59 @@
+{
+    "name" : "Interactive Pool",
+    "camera": {
+        "number":0,
+        "type" : "standard",
+        "width": 1920,
+        "height": 1080,
+        "flip": false
+    },
+    "applications": {
+        "startup": ["show_hands", "menu", "balls"],
+        "disabled": [],
+        "menu_control": ["rabbits_game", "affine", "triangles_remarkable_lines", "triangles_full_lesson", "triangles_short_lesson"],
+        "no_menu_tutorial_gif" : ["affine", "triangles_remarkable_lines", "triangles_full_lesson", "triangles_short_lesson"]
+    },
+    "app_metadata": {
+        "rabbits_game": {
+            "name": "Rabbits Game",
+            "description": "Jeu éducatif amusant pour apprendre les mathématiques",
+            "category": "Jeux",
+            "icon": "🐰",
+            "color": "#FF6B9D",
+            "enabled": true
+        },
+        "affine": {
+            "name": "Transformations Affines",
+            "description": "Explorez les transformations géométriques affines",
+            "category": "Mathématiques",
+            "icon": "📐",
+            "color": "#4A90E2",
+            "enabled": true
+        },
+        "triangles_remarkable_lines": {
+            "name": "Lignes Remarquables",
+            "description": "Étudiez les propriétés des triangles",
+            "category": "Géométrie",
+            "icon": "△",
+            "color": "#7ED321",
+            "enabled": true
+        },
+        "triangles_full_lesson": {
+            "name": "Cours Complet Triangles",
+            "description": "Programme d'apprentissage complet sur les triangles",
+            "category": "Éducation",
+            "icon": "📚",
+            "color": "#F5A623",
+            "enabled": true
+        },
+        "triangles_short_lesson": {
+            "name": "Leçon Rapide Triangles",
+            "description": "Introduction courte aux triangles",
+            "category": "Éducation",
+            "icon": "⚡",
+            "color": "#B8E986",
+            "enabled": true
+        }
+    },
+    "calibrate": true
+}
