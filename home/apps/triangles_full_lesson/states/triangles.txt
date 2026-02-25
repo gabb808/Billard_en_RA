@@ -1,0 +1,47 @@
+Triangle Obtus
+A(645, 580)
+B(1372, 530)
+C(1046, 377)
+
+trianglePracticeC
+A(874, 858)
+B(764, 377)
+C(966, 193)
+
+Triangle Aigu
+
+A(961, 790)
+B(1162, 462)
+C(528, 233)
+
+A(961, 791)
+B(499, 389)
+C(790, 249)
+
+
+Isocele
+ne pas prendre un triangle tout droit, on ne peut pas y tracer de hauteur verticale (division par 0 à régler dans triangle.js)
+
+//Used doHauteurOnIsocele
+de coté
+A(1147, 574)
+B(747, 524)
+C(1083, 302)
+
+A(613, 646)
+B(842, 311)
+C(587, 240)
+
+Equilateral
+
+base en bas
+A(918, 693)
+B(584, 668)
+C(772, 393)
+
+de coté
+// Used mediatriceHauteurEquilateral.js
+A(944, 674)
+B(1229, 519)
+C(953, 352)
+
