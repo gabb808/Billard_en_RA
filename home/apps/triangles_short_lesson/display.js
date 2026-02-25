@@ -23,7 +23,7 @@ import {
 } from "./states/challengeResult.js"
 
 let audio
-let bgAudio = new Audio("./platform/home/apps/triangles_full_lesson/assets/bg_music.wav");
+let bgAudio = new Audio("./home/apps/triangles_full_lesson/assets/bg_music.wav");
 let balls = new Balls();
 let refreshCircleTrigger = 0;
 let exitCircleTrigger = 0;

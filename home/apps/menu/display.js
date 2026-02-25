@@ -1,4 +1,5 @@
 // Menu amélioré avec système de catégories et grille d'applications
+// VERSION CORRIGÉE: Interaction au doigt, rotation 180°, feedback amélioré
 
 export const menu = new p5((sketch) => {
     sketch.name = "menu";
@@ -20,8 +21,8 @@ export const menu = new p5((sketch) => {
     let y_trigger = 0;
     let set_menu_position = true;
 
-    let menu_width = 950;      // Largeur de la grille
-    let menu_height = 750;     // Hauteur de la grille
+    let menu_width = 950;
+    let menu_height = 750;
     let actual_width = 0;
     let actual_height = 0;
 
@@ -34,12 +35,12 @@ export const menu = new p5((sketch) => {
     let speed_regulator = 0;
 
     let menu_opening_time = 0;
-    let automatic_menu_closing_time = 15000; // 15 secondes
+    let automatic_menu_closing_time = 15000;
 
     // Sons et GIFs
-    var audio_opening = new Audio("./platform/home/apps/menu/components/opening_menu.mp3");
-    var closing_audio = new Audio("./platform/home/apps/menu/components/closing_menu.mp3");
-    var click_audio = new Audio("./platform/home/apps/menu/components/click.mp3");
+    var audio_opening = new Audio("./home/apps/menu/components/opening_menu.mp3");
+    var closing_audio = new Audio("./home/apps/menu/components/closing_menu.mp3");
+    var click_audio = new Audio("./home/apps/menu/components/click.mp3");
 
     let open_gif, close_gif;
 
@@ -55,18 +56,19 @@ export const menu = new p5((sketch) => {
     // Grille et sélection
     let grid_cols = 3;
     let grid_rows = 2;
-    let selected_grid_x = 0;
-    let selected_grid_y = 0;
     let cell_padding = 15;
     let cooldown_select = 0;
     let cell_hover_strength = [];
+    
+    // Pour interaction
+    let hovered_cell_idx = -1;
 
     // ========== PRELOAD ==========
     sketch.preload = () => {
         font = loadFont("/gosai/pool/core/server/assets/FallingSky-JKwK.otf");
 
-        open_gif = sketch.createImg("./platform/home/apps/menu/components/hand_opening.gif");
-        close_gif = sketch.createImg("./platform/home/apps/menu/components/hand_closing.gif");
+        open_gif = sketch.createImg("./home/apps/menu/components/hand_opening.gif");
+        close_gif = sketch.createImg("./home/apps/menu/components/hand_closing.gif");
 
         open_gif.id("open_gif");
         close_gif.id("close_gif");
@@ -88,7 +90,6 @@ export const menu = new p5((sketch) => {
         });
     };
 
-    // ========== ORGANISATION PAR CATÉGORIES ==========
     function organizeByCategories() {
         categories = {};
         for (let app of app_control_menu) {
@@ -173,7 +174,10 @@ export const menu = new p5((sketch) => {
             sketch.push();
             sketch.fill(255, 100, 150, 200);
             sketch.noStroke();
-            sketch.circle(index_x_a, index_y_a, 15);
+            sketch.circle(index_x_a, index_y_a, 25);
+            // Point intérieur blanc pour visibilité
+            sketch.fill(255, 255, 255);
+            sketch.circle(index_x_a, index_y_a, 12);
             sketch.pop();
         } else {
             index_x_a = 0;
@@ -226,7 +230,6 @@ export const menu = new p5((sketch) => {
             let finger_gap_y = Math.abs(index_y_a - index_y_b);
 
             if (menu_state == false) {
-                // Ouverture du menu: rapprocher les doigts
                 if (finger_gap_x < 90 && finger_gap_y < 100) {
                     y_trigger = index_y_a;
                     trigger_menu = true;
@@ -234,7 +237,6 @@ export const menu = new p5((sketch) => {
                     menu_position_x = index_x_a;
                 }
                 if (trigger_menu == true) {
-                    // Écarter les mains pour ouvrir
                     if (finger_gap_x > 250 && finger_gap_x < 500 && Math.abs(y_trigger - index_y_a) < 70) {
                         menu_is_opening = true;
                         menu_is_closing = false;
@@ -248,7 +250,6 @@ export const menu = new p5((sketch) => {
                     }
                 }
             } else {
-                // Fermeture du menu
                 if (finger_gap_x > 250 && finger_gap_x < 500 && finger_gap_y < 100 && 
                     Math.abs(menu_position_x - index_x_a) < 300) {
                     y_trigger = index_y_a;
@@ -266,7 +267,6 @@ export const menu = new p5((sketch) => {
                     }
                 }
 
-                // Réinitialiser le timer d'auto-fermeture quand l'utilisateur interagit
                 if (index_x_a != 0 && menu_state) {
                     menu_opening_time = millis();
                 }
@@ -317,17 +317,17 @@ export const menu = new p5((sketch) => {
             }
         }
 
-        // Dessin du menu
+        // Dessin du menu AVEC ROTATION 180°
         sketch.push();
         sketch.translate(menu_position_x, menu_position_y);
+        sketch.rotate(PI); // ← ROTATION 180°
 
-        // Fond du menu avec style amélioré
+        // Fond du menu
         sketch.noFill();
         sketch.stroke(255);
         sketch.strokeWeight(3);
         sketch.rectMode(CENTER);
         
-        // Dégradé de shadow
         sketch.fill(0, 0, 0, 100);
         sketch.rect(0, 0, actual_width + 4, actual_height + 4);
         
@@ -378,7 +378,11 @@ export const menu = new p5((sketch) => {
                 // Bouton catégorie
                 sketch.stroke(i === current_category ? 100 : 150, i === current_category ? 200 : 100, 255);
                 sketch.strokeWeight(i === current_category ? 3 : 1);
-                sketch.fill(i === current_category ? 50, 80, 150 : 20, 20, 40);
+                if (i === current_category) {
+                    sketch.fill(50, 80, 150);
+                } else {
+                    sketch.fill(20, 20, 40);
+                }
                 sketch.rect(cat_x, 0, category_width, 35, 5);
 
                 sketch.fill(255);
@@ -406,24 +410,27 @@ export const menu = new p5((sketch) => {
                     let cell_x = x * grid_cell_width + grid_cell_width / 2;
                     let cell_y = y * grid_cell_height + grid_cell_height / 2;
 
-                    // Initialiser l'hover
                     if (!cell_hover_strength[idx]) cell_hover_strength[idx] = 0;
 
-                    // Détection du survol
                     let cell_left = cell_x - grid_cell_width / 2 + cell_padding;
                     let cell_right = cell_x + grid_cell_width / 2 - cell_padding;
                     let cell_top = cell_y - grid_cell_height / 2 + cell_padding;
                     let cell_bottom = cell_y + grid_cell_height / 2 - cell_padding;
 
-                    let local_x = index_x_a - (sketch.selfCanvas.offsetLeft + menu_position_x - menu_width / 2 + 20);
-                    let local_y = index_y_a - (sketch.selfCanvas.offsetTop + menu_position_y + grid_start_y);
+                    // FIX: Calcul correct de la position avec la rotation 180°
+                    // Inverser les coordonnées à cause de rotate(PI)
+                    let inv_x = -index_x_a + menu_position_x * 2;
+                    let inv_y = -index_y_a + menu_position_y * 2;
+                    
+                    let local_x = inv_x - (menu_position_x - menu_width / 2 + 20);
+                    let local_y = inv_y - (menu_position_y + grid_start_y);
 
                     let is_hovering = (local_x > cell_left && local_x < cell_right &&
                                      local_y > cell_top && local_y < cell_bottom);
 
-                    // Smooth hover
                     if (is_hovering) {
                         cell_hover_strength[idx] = min(100, cell_hover_strength[idx] + speed_regulator * 4);
+                        hovered_cell_idx = idx;
                     } else {
                         cell_hover_strength[idx] = max(0, cell_hover_strength[idx] - speed_regulator * 3);
                     }
@@ -439,9 +446,9 @@ export const menu = new p5((sketch) => {
                     sketch.strokeWeight(is_hovering ? 3 : 2);
                     sketch.rect(cell_x, cell_y, grid_cell_width - cell_padding * 2, grid_cell_height - cell_padding * 2, 8);
 
-                    // Remplissage au survol
+                    // Remplissage au survol avec feedback visuel amélioré
                     if (cell_hover_strength[idx] > 0) {
-                        sketch.fill(color_r, color_g, color_b, cell_hover_strength[idx] * 0.5);
+                        sketch.fill(color_r, color_g, color_b, cell_hover_strength[idx] * 0.7);
                         sketch.noStroke();
                         sketch.rect(cell_x, cell_y, grid_cell_width - cell_padding * 2, grid_cell_height - cell_padding * 2, 8);
                     }
@@ -452,6 +459,7 @@ export const menu = new p5((sketch) => {
                     sketch.text(app_meta.icon || "📱", cell_x, cell_y - 35);
 
                     // Nom
+                    sketch.fill(255);
                     sketch.textSize(18);
                     sketch.text(app_meta.name || app_name, cell_x, cell_y + 15);
 
@@ -460,6 +468,16 @@ export const menu = new p5((sketch) => {
                         sketch.fill(0, 255, 0, 200);
                         sketch.textSize(12);
                         sketch.text("▶ Active", cell_x, cell_y + 35);
+                    }
+
+                    // Indicateur de pression visuel
+                    if (cell_hover_strength[idx] > 20) {
+                        sketch.noFill();
+                        sketch.stroke(color_r, color_g, color_b, cell_hover_strength[idx]);
+                        sketch.strokeWeight(2);
+                        let progress = cell_hover_strength[idx] / 100;
+                        sketch.arc(cell_x, cell_y, grid_cell_width - cell_padding * 4, grid_cell_height - cell_padding * 4, 
+                                   -PI/2, -PI/2 + TWO_PI * progress, PIE);
                     }
 
                     // Au clic

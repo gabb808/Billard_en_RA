@@ -18,8 +18,9 @@ DEFAULT_JSON_PATH = "home/calibration_data.json"
 DEFAULT_BKG_PATH = "home/background.jpg"
 
 DEFAULT_SIZE = 1920, 1080
-DEFAULT_MIN_MOMENT_00 = np.pi * 15 ** 2
-DEFAULT_MIN_DISTANCE = 10
+# Augmenté pour éviter les trous et petites détections faux positifs
+DEFAULT_MIN_MOMENT_00 = np.pi * 35 ** 2  # De 15 à 35 (5026 au lieu de 706 pixels)
+DEFAULT_MIN_DISTANCE = 25  # De 10 à 25 pour être plus strict sur la circularité
 
 
 @dataclass
@@ -51,7 +52,8 @@ def detect_balls(bkg: np.ndarray, frame: np.ndarray, camera: Camera) -> list(tup
     frame = camera.warp_projection(frame, DEFAULT_SIZE)
     # cv2.imwrite("home/warped.jpg", frame) #check calibration_data.json if looks wrong
     frame = cv2.GaussianBlur(frame, (5, 5), 0)
-    _, frame = cv2.threshold(frame, 100, 255, cv2.THRESH_BINARY)
+    # Augmenté threshold de 100 à 150 pour éviter la sensibilité excessive
+    _, frame = cv2.threshold(frame, 150, 255, cv2.THRESH_BINARY)
 
     contours, _ = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     moments = list(map(cv2.moments, contours))
