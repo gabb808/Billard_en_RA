@@ -59,6 +59,8 @@ export const menu = new p5((sketch) => {
     let cell_padding = 15;
     let cooldown_select = 0;
     let cell_hover_strength = [];
+    let selected_grid_x = 0;
+    let selected_grid_y = 0;
     
     // Pour interaction
     let hovered_cell_idx = -1;
