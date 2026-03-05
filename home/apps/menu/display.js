@@ -699,3 +699,4 @@ export const menu = new p5((sketch) => {
             cooldown_select -= speed_regulator;
         }
     }
+});
