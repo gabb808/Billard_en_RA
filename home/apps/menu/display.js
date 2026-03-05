@@ -165,6 +165,9 @@ export const menu = new p5((sketch) => {
         sketch.fill(100, 150, 200, 150);
         sketch.textSize(14);
         sketch.textAlign(LEFT);
+        sketch.translate(width / 2, height / 2);
+        sketch.rotate(PI); // ROTATION 180° pour le texte
+        sketch.translate(-width / 2, -height / 2);
         if (!menu_state) {
             sketch.text("Geste: Rapprochez puis écartez les doigts pour ouvrir le menu", 20, height - 30);
         } else {
@@ -209,9 +212,12 @@ export const menu = new p5((sketch) => {
         check_menu_trigger();
         draw_menu(sketch);
 
-        // Affichage du message de feedback
+        // Affichage du message de feedback - AVEC ROTATION 180°
         if (feedback_message) {
             sketch.push();
+            sketch.translate(width / 2, height / 2);
+            sketch.rotate(PI);
+            sketch.translate(-width / 2, -height / 2);
             sketch.fill(100, 200, 255);
             sketch.textSize(24);
             sketch.textAlign(CENTER, CENTER);
@@ -224,8 +230,11 @@ export const menu = new p5((sketch) => {
             }
         }
 
-        // Affichage du titre
+        // Affichage du titre - AVEC ROTATION 180°
         sketch.push();
+        sketch.translate(width / 2, height / 2);
+        sketch.rotate(PI);
+        sketch.translate(-width / 2, -height / 2);
         sketch.translate(width / 2 - 250, -150);
         sketch.fill(255);
         sketch.stroke(255);
@@ -234,8 +243,11 @@ export const menu = new p5((sketch) => {
         sketch.text("Interactive Pool", 0, 0);
         sketch.pop();
 
-        // Affichage des FPS
+        // Affichage des FPS - AVEC ROTATION 180°
         sketch.push();
+        sketch.translate(width / 2, height / 2);
+        sketch.rotate(PI);
+        sketch.translate(-width / 2, -height / 2);
         sketch.translate(width - 300, height - 50);
         sketch.fill(255);
         sketch.textSize(24);
@@ -422,6 +434,29 @@ export const menu = new p5((sketch) => {
                 sketch.textSize(18);
                 sketch.textAlign(CENTER, CENTER);
                 sketch.text(cat_name, cat_x, 0);
+                
+                // ✅ DÉTECTION DE CLIC SUR LES CATÉGORIES
+                let cat_left = cat_x - category_width / 2;
+                let cat_right = cat_x + category_width / 2;
+                let cat_top = 0 - category_height / 2;
+                let cat_bottom = 0 + category_height / 2;
+                
+                // Calcul des coordonnées inversées (rotation 180°)
+                let inv_x = -index_x_a + menu_position_x * 2;
+                let inv_y = -index_y_a + menu_position_y * 2;
+                
+                let local_x = inv_x - (menu_position_x - menu_width / 2 + 25);
+                let local_y = inv_y - (menu_position_y + category_bar_y);
+                
+                let is_hovering_cat = (local_x > cat_left && local_x < cat_right &&
+                                       local_y > cat_top && local_y < cat_bottom);
+                
+                // Si on détecte un clic sur cette catégorie
+                if (is_hovering_cat && index_x_a != 0) {
+                    current_category = i; // Change la catégorie
+                    // Réinitialise le cooldown pour éviter les clics multiples
+                    cooldown_select = 30;
+                }
             }
             sketch.pop();
         }
