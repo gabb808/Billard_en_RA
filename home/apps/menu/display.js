@@ -68,6 +68,12 @@ export const menu = new p5((sketch) => {
     // Message de feedback
     let feedback_message = "";
     let feedback_time = 0;
+    
+    // Écran d'accueil (home screen)
+    let show_home_screen = true;
+    let inactivity_timeout = 30000; // 30 secondes
+    let last_interaction_time = 0;
+    let home_button_hover = -1; // -1: aucun, 0: REPRENDRE, 1: DÉMARRER
 
     // ========== PRELOAD ==========
     sketch.preload = () => {
@@ -211,6 +217,15 @@ export const menu = new p5((sketch) => {
 
         check_menu_trigger();
         draw_menu(sketch);
+        
+        // Vérifier inactivité pour afficher l'écran d'accueil
+        if (show_home_screen && !menu_state && !menu_is_opening) {
+            draw_home_screen(sketch);
+        } else if (!show_home_screen && millis() - last_interaction_time > inactivity_timeout) {
+            show_home_screen = true;
+            menu_is_closing = true;
+            menu_state = false;
+        }
 
         // Affichage du message de feedback - AVEC ROTATION 180°
         if (feedback_message) {
@@ -554,6 +569,8 @@ export const menu = new p5((sketch) => {
                             feedback_message = `${app_meta.name} lancé! Écartez les mains pour rouvrir`;
                         }
                         feedback_time = 120; // 2 secondes
+                        last_interaction_time = millis(); // Reset timer
+                        show_home_screen = false;
                         
                         // Fermeture instantanée du menu
                         menu_is_closing = true;
@@ -580,4 +597,105 @@ export const menu = new p5((sketch) => {
             b: parseInt(result[3], 16)
         } : { r: 100, g: 150, b: 255 };
     }
-});
+
+    // ========== ÉCRAN D'ACCUEIL ==========
+    function draw_home_screen(sketch) {
+        sketch.push();
+        sketch.translate(width / 2, height / 2);
+        sketch.rotate(PI); // Rotation 180°
+        sketch.translate(-width / 2, -height / 2);
+
+        // Titre
+        sketch.push();
+        sketch.fill(100, 200, 255);
+        sketch.textSize(48);
+        sketch.textAlign(CENTER, CENTER);
+        sketch.text("INTERACTIVE POOL", width / 2, height / 4);
+        sketch.pop();
+
+        // Bouton REPRENDRE
+        let btn_width = 400;
+        let btn_height = 100;
+        let btn_y_resume = height / 2 - 80;
+        let btn_x = width / 2;
+
+        // Détection du survol pour REPRENDRE
+        let inv_x = -index_x_a + width / 2 * 2;
+        let inv_y = -index_y_a + height / 2 * 2;
+        let resume_left = btn_x - btn_width / 2;
+        let resume_right = btn_x + btn_width / 2;
+        let resume_top = btn_y_resume - btn_height / 2;
+        let resume_bottom = btn_y_resume + btn_height / 2;
+
+        let is_hovering_resume = (inv_x > resume_left && inv_x < resume_right &&
+                                 inv_y > resume_top && inv_y < resume_bottom);
+
+        // Dessin bouton REPRENDRE
+        sketch.fill(is_hovering_resume ? 100 : 50, 150, 200);
+        sketch.stroke(150, 200, 255);
+        sketch.strokeWeight(is_hovering_resume ? 3 : 2);
+        sketch.rect(btn_x, btn_y_resume, btn_width, btn_height, 10);
+
+        sketch.fill(255);
+        sketch.textSize(32);
+        sketch.textAlign(CENTER, CENTER);
+        sketch.text("REPRENDRE JEU", btn_x, btn_y_resume);
+
+        // Clic sur REPRENDRE
+        if (is_hovering_resume && index_x_a != 0 && cooldown_select <= 0) {
+            click_audio.play();
+            cooldown_select = 50;
+            show_home_screen = false;
+            last_interaction_time = millis();
+            feedback_message = "Retour au jeu";
+            feedback_time = 60;
+        }
+
+        // Bouton DÉMARRER UN AUTRE JEU
+        let btn_y_start = height / 2 + 80;
+
+        let start_left = btn_x - btn_width / 2;
+        let start_right = btn_x + btn_width / 2;
+        let start_top = btn_y_start - btn_height / 2;
+        let start_bottom = btn_y_start + btn_height / 2;
+
+        let is_hovering_start = (inv_x > start_left && inv_x < start_right &&
+                                inv_y > start_top && inv_y < start_bottom);
+
+        // Dessin bouton DÉMARRER
+        sketch.fill(is_hovering_start ? 100 : 50, 150, 200);
+        sketch.stroke(150, 200, 255);
+        sketch.strokeWeight(is_hovering_start ? 3 : 2);
+        sketch.rect(btn_x, btn_y_start, btn_width, btn_height, 10);
+
+        sketch.fill(255);
+        sketch.textSize(32);
+        sketch.textAlign(CENTER, CENTER);
+        sketch.text("DÉMARRER UN AUTRE JEU", btn_x, btn_y_start);
+
+        // Clic sur DÉMARRER
+        if (is_hovering_start && index_x_a != 0 && cooldown_select <= 0) {
+            click_audio.play();
+            cooldown_select = 50;
+            show_home_screen = false;
+            menu_state = true;
+            menu_is_opening = false;
+            opening_menu_percentage = 100;
+            last_interaction_time = millis();
+            feedback_message = "Menu de sélection ouvert";
+            feedback_time = 60;
+        }
+
+        // Instructions
+        sketch.fill(100, 150, 200, 150);
+        sketch.textSize(14);
+        sketch.textAlign(CENTER);
+        sketch.text("Sélectionnez avec votre doigt", width / 2, height - 50);
+
+        sketch.pop();
+
+        // Gestion du cooldown
+        if (cooldown_select > 0) {
+            cooldown_select -= speed_regulator;
+        }
+    }
