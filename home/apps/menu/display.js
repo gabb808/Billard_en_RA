@@ -64,6 +64,10 @@ export const menu = new p5((sketch) => {
     
     // Pour interaction
     let hovered_cell_idx = -1;
+    
+    // Message de feedback
+    let feedback_message = "";
+    let feedback_time = 0;
 
     // ========== PRELOAD ==========
     sketch.preload = () => {
@@ -148,17 +152,25 @@ export const menu = new p5((sketch) => {
             sketch.emit("core-app_manager-start_application", { application_name: "balls" });
         }
 
-        // Gestion des GIFs
-        open_gif.position(690, 500);
-        close_gif.position(840, 400);
-        document.getElementById("open_gif").style.visibility = "visible";
-        document.getElementById("close_gif").style.visibility = "visible";
+        // Gestion des GIFs (REMPLACÉS PAR TEXTE)
+        // open_gif.position(690, 500);
+        // close_gif.position(840, 400);
+        // document.getElementById("open_gif").style.visibility = "visible";
+        // document.getElementById("close_gif").style.visibility = "visible";
         close_gif.hide();
         open_gif.hide();
 
-        if (!no_menu_tutorial_apps.some(a_no_gif_app => started_apps.includes(a_no_gif_app))) {
-            open_gif.show();
+        // Affichage texte simplifié à la place
+        sketch.push();
+        sketch.fill(100, 150, 200, 150);
+        sketch.textSize(14);
+        sketch.textAlign(LEFT);
+        if (!menu_state) {
+            sketch.text("Geste: Rapprochez puis écartez les doigts pour ouvrir le menu", 20, height - 30);
+        } else {
+            sketch.text("Menu ouvert - Sélectionnez un jeu", 20, height - 30);
         }
+        sketch.pop();
 
         fps = Math.round(frameRate());
         speed_regulator = 50 / fps;
@@ -196,6 +208,21 @@ export const menu = new p5((sketch) => {
 
         check_menu_trigger();
         draw_menu(sketch);
+
+        // Affichage du message de feedback
+        if (feedback_message) {
+            sketch.push();
+            sketch.fill(100, 200, 255);
+            sketch.textSize(24);
+            sketch.textAlign(CENTER, CENTER);
+            sketch.text(feedback_message, width / 2, height / 2);
+            sketch.pop();
+            
+            feedback_time--;
+            if (feedback_time <= 0) {
+                feedback_message = "";
+            }
+        }
 
         // Affichage du titre
         sketch.push();
@@ -357,38 +384,43 @@ export const menu = new p5((sketch) => {
         sketch.stroke(255);
         sketch.textAlign(CENTER, CENTER);
 
-        // En-tête de menu
+        // En-tête de menu - SIMPLIFIÉ
         sketch.push();
-        sketch.translate(0, -menu_height / 2 + 40);
-        sketch.textSize(36);
+        sketch.translate(0, -menu_height / 2 + 35);
+        sketch.textSize(32);
         sketch.strokeWeight(0);
-        sketch.text("🎮 MENU", 0, 0);
+        sketch.fill(150, 200, 255);
+        sketch.textAlign(CENTER, CENTER);
+        sketch.text("MENU PRINCIPAL", 0, 0);
         sketch.pop();
 
-        // Barre de catégories
-        let category_bar_y = -menu_height / 2 + 90;
-        let category_width = menu_width / category_list.length - 10;
-        let category_x_start = -menu_width / 2 + 20;
+        // Barre de catégories (AUGMENTÉE POUR MEILLEURE LISIBILITÉ)
+        let category_bar_y = -menu_height / 2 + 80;
+        let category_width = menu_width / category_list.length - 15;
+        let category_x_start = -menu_width / 2 + 25;
+        let category_height = 50; // Augmenté de 35 à 50
 
         if (category_list.length > 1) {
             sketch.push();
             sketch.translate(0, category_bar_y);
             for (let i = 0; i < category_list.length; i++) {
-                let cat_x = category_x_start + (i * (category_width + 10)) + category_width / 2;
+                let cat_x = category_x_start + (i * (category_width + 15)) + category_width / 2;
                 let cat_name = category_list[i];
 
-                // Bouton catégorie
-                sketch.stroke(i === current_category ? 100 : 150, i === current_category ? 200 : 100, 255);
-                sketch.strokeWeight(i === current_category ? 3 : 1);
+                // Bouton catégorie - SIMPLIFIÉ
                 if (i === current_category) {
-                    sketch.fill(50, 80, 150);
+                    sketch.fill(100, 150, 255);
+                    sketch.stroke(150, 200, 255);
                 } else {
-                    sketch.fill(20, 20, 40);
+                    sketch.fill(40, 60, 100);
+                    sketch.stroke(100, 120, 200);
                 }
-                sketch.rect(cat_x, 0, category_width, 35, 5);
+                sketch.strokeWeight(2);
+                sketch.rect(cat_x, 0, category_width, category_height, 5);
 
                 sketch.fill(255);
-                sketch.textSize(16);
+                sketch.textSize(18);
+                sketch.textAlign(CENTER, CENTER);
                 sketch.text(cat_name, cat_x, 0);
             }
             sketch.pop();
@@ -396,9 +428,9 @@ export const menu = new p5((sketch) => {
 
         // Grille d'applications
         let current_apps = categories[category_list[current_category]] || [];
-        let grid_start_y = -menu_height / 2 + 160;
+        let grid_start_y = -menu_height / 2 + 160; // Ajusté pour les catégories plus grandes
         let grid_cell_width = (menu_width - 40) / grid_cols;
-        let grid_cell_height = (menu_height - 250) / grid_rows;
+        let grid_cell_height = (menu_height - 240) / grid_rows;
 
         sketch.push();
         sketch.translate(-menu_width / 2 + 20, grid_start_y);
@@ -437,20 +469,20 @@ export const menu = new p5((sketch) => {
                         cell_hover_strength[idx] = max(0, cell_hover_strength[idx] - speed_regulator * 3);
                     }
 
-                    // Dessin de la cellule
-                    let color_r = app_meta.color ? hexToRgb(app_meta.color).r : 100;
-                    let color_g = app_meta.color ? hexToRgb(app_meta.color).g : 150;
-                    let color_b = app_meta.color ? hexToRgb(app_meta.color).b : 255;
+                    // Dessin de la cellule - SIMPLIFIÉ
+                    let color_r = 100;
+                    let color_g = 150;
+                    let color_b = 255;
 
                     // Fond de la cellule
-                    sketch.fill(color_r * 0.3, color_g * 0.3, color_b * 0.3);
+                    sketch.fill(30, 40, 80);
                     sketch.stroke(color_r, color_g, color_b);
                     sketch.strokeWeight(is_hovering ? 3 : 2);
                     sketch.rect(cell_x, cell_y, grid_cell_width - cell_padding * 2, grid_cell_height - cell_padding * 2, 8);
 
-                    // Remplissage au survol avec feedback visuel amélioré
+                    // Remplissage au survol - SIMPLE
                     if (cell_hover_strength[idx] > 0) {
-                        sketch.fill(color_r, color_g, color_b, cell_hover_strength[idx] * 0.7);
+                        sketch.fill(color_r, color_g, color_b, cell_hover_strength[idx] * 0.5);
                         sketch.noStroke();
                         sketch.rect(cell_x, cell_y, grid_cell_width - cell_padding * 2, grid_cell_height - cell_padding * 2, 8);
                     }
@@ -458,40 +490,40 @@ export const menu = new p5((sketch) => {
                     // Icône
                     sketch.fill(255);
                     sketch.textSize(48);
-                    sketch.text(app_meta.icon || "📱", cell_x, cell_y - 35);
+                    sketch.textAlign(CENTER, CENTER);
+                    sketch.text(app_meta.icon || "📱", cell_x, cell_y - 25);
 
                     // Nom
                     sketch.fill(255);
-                    sketch.textSize(18);
-                    sketch.text(app_meta.name || app_name, cell_x, cell_y + 15);
+                    sketch.textSize(16);
+                    sketch.textAlign(CENTER, CENTER);
+                    sketch.text(app_meta.name || app_name, cell_x, cell_y + 25);
 
-                    // Statut "En cours"
+                    // Statut "En cours" - SIMPLIFIÉ
                     if (started_apps.includes(app_name)) {
-                        sketch.fill(0, 255, 0, 200);
-                        sketch.textSize(12);
-                        sketch.text("▶ Active", cell_x, cell_y + 35);
+                        sketch.fill(0, 255, 0);
+                        sketch.textSize(11);
+                        sketch.text("(Actif)", cell_x, cell_y + 45);
                     }
 
-                    // Indicateur de pression visuel
-                    if (cell_hover_strength[idx] > 20) {
-                        sketch.noFill();
-                        sketch.stroke(color_r, color_g, color_b, cell_hover_strength[idx]);
-                        sketch.strokeWeight(2);
-                        let progress = cell_hover_strength[idx] / 100;
-                        sketch.arc(cell_x, cell_y, grid_cell_width - cell_padding * 4, grid_cell_height - cell_padding * 4, 
-                                   -PI/2, -PI/2 + TWO_PI * progress, PIE);
-                    }
-
-                    // Au clic
+                    // Au clic - FERMETURE INSTANTANÉE
                     if (is_hovering && cell_hover_strength[idx] > 95 && cooldown_select <= 0) {
                         click_audio.play();
                         cooldown_select = 50;
 
                         if (started_apps.includes(app_name)) {
                             sketch.emit("core-app_manager-stop_application", { application_name: app_name });
+                            feedback_message = `${app_meta.name} arrêté`;
                         } else {
                             sketch.emit("core-app_manager-start_application", { application_name: app_name });
+                            feedback_message = `${app_meta.name} lancé! Écartez les mains pour rouvrir`;
                         }
+                        feedback_time = 120; // 2 secondes
+                        
+                        // Fermeture instantanée du menu
+                        menu_is_closing = true;
+                        menu_state = false;
+                        closing_audio.play();
                     }
                 }
             }
