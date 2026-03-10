@@ -10,7 +10,7 @@
     "applications": {
         "startup": ["show_hands", "menu", "balls"],
         "disabled": [],
-        "menu_control": ["rabbits_game", "affine", "triangles_remarkable_lines", "triangles_full_lesson", "triangles_short_lesson"],
+        "menu_control": ["rabbits_game", "affine", "triangles_remarkable_lines", "triangles_full_lesson", "triangles_short_lesson", "vectors"],
         "no_menu_tutorial_gif" : ["affine", "triangles_remarkable_lines", "triangles_full_lesson", "triangles_short_lesson"]
     },
     "calibrate": true
