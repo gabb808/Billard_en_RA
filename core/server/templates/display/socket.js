@@ -17,26 +17,56 @@ export const socket = io.connect(window.location.origin, {
 
 socket_link = socket;
 
+async function loadFreshApplication(application_name) {
+    const modulePath = "./home/apps/" + application_name + "/display.js?v=" + Date.now();
+    const module = await import(modulePath);
+    const application = module[application_name];
+
+    if (!application) {
+        throw new Error("Application export not found for " + application_name);
+    }
+
+    application.set(window.innerWidth, window.innerHeight, socket);
+    modules[application_name] = application;
+}
+
+function disposeApplication(application_name) {
+    if (!Object.keys(modules).includes(application_name)) return;
+
+    const app = modules[application_name];
+    try {
+        if (app && app.selfCanvas && typeof app.selfCanvas.remove === "function") {
+            app.selfCanvas.remove();
+        } else if (app && app.selfCanvas && typeof app.selfCanvas.hide === "function") {
+            app.selfCanvas.hide();
+        }
+    } catch (e) {
+        console.warn("Dispose canvas warning for " + application_name, e);
+    }
+
+    delete modules[application_name];
+}
+
 socket.on("core-app_manager-start_application", async (data) => {
     const application_name = data["application_name"];
 
     if (Object.keys(modules).includes(application_name)) {
-        if (!modules[application_name].activated) {
-            try {
-                modules[application_name].activated = true;
-                modules[application_name].selfCanvas.show();
-                modules[application_name].resume();
-            } catch (e) {
-                catch_error(e, application_name, "Resume error", true);
-            }
+        if (modules[application_name].activated) {
+            socket.emit("application-" + application_name + "-started");
+            return;
+        }
+
+        // Force fresh code reload on restart so JS edits are applied without page refresh.
+        try {
+            disposeApplication(application_name);
+            await loadFreshApplication(application_name);
+        } catch (e) {
+            catch_error(e, application_name, "Restart error", true);
         }
     } else {
         try {
-            const module = await import("./home/apps/" + application_name + "/display.js")
-            const application = module[application_name]
+            await loadFreshApplication(application_name);
             console.log("Starting:" + application_name);
-            application.set(window.innerWidth, window.innerHeight, socket);
-            modules[application_name] = application;
         } catch (e) {
             catch_error(e, application_name, "Start error", true);
         }
@@ -51,14 +81,17 @@ socket.on("core-app_manager-stop_application", async (data) => {
     try {
         console.log("Stopping:" + application_name);
         if(Object.keys(modules).includes(application_name)) {
-            modules[application_name].activated = false;
-            modules[application_name].selfCanvas.hide();
-            modules[application_name].pause();
+            try {
+                modules[application_name].activated = false;
+                modules[application_name].selfCanvas.hide();
+                modules[application_name].pause();
+            } catch (e) {
+                catch_error(e, application_name, "Stop error", false);
+            }
         }
     } catch (e) {
         catch_error(e, application_name, "Stop error", false);
     }
-
 });
 
 socket.emit("core-app_manager-window_loaded");
