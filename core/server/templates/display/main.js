@@ -21,6 +21,7 @@ let calibrationMatrix;
 const calibrationBypassModules = new Set(["menu"]);
 const rotateDisplay180 = true;
 const alreadyRotatedModules = new Set(["triangles_full_lesson", "triangles_short_lesson"]);
+const calibrationXOffsetPx = 72;
 
 function preload() {
     let url = getURLPath();
@@ -40,8 +41,9 @@ function setup() {
     frameRate(120);
 
     if(doCalibration) {
+        const outPts = calibrationData.outpts.map((pt) => [pt[0] + calibrationXOffsetPx, pt[1]]);
         calibrationMatrix = new ProjectionMatrix(
-            calibrationData.outpts,
+            outPts,
             calibrationData.screen_coords
         );
         calibrationMatrix.edit = true;

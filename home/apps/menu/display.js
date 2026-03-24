@@ -78,8 +78,10 @@ export const menu = new p5((sketch) => {
     let canvas_width = 0;
     let canvas_height = 0;
     const UI_SCALE = 0.72;
-    const INDEX_HOVER_RADIUS = 30;
-    const HAND_HOVER_RADIUS = 55;
+    const INDEX_HOVER_RADIUS = 40;
+    const HAND_HOVER_RADIUS = 70;
+    const BUTTON_HITBOX_PADDING = 18;
+    const CELL_HITBOX_PADDING = 20;
 
     // ========== PRELOAD ==========
     sketch.preload = () => {
@@ -188,7 +190,7 @@ export const menu = new p5((sketch) => {
 
         // Si en train de jouer et inactivité > 1 min => IDLE
         if (current_screen === SCREENS.PLAYING && timeSinceInteraction > idle_timeout) {
-            current_screen = SCREENS.IDLE;
+            setScreenImmediate(SCREENS.IDLE);
             idle_countdown_start = now;
         }
 
@@ -202,7 +204,9 @@ export const menu = new p5((sketch) => {
         if (current_screen === SCREENS.IDLE) {
             const timeInIdle = now - idle_countdown_start;
             if (timeInIdle > idle_countdown_max) {
-                goToScreen(SCREENS.START);
+                stopSelectedApp();
+                setScreenImmediate(SCREENS.START);
+                last_interaction_time = now;
             }
         }
 
@@ -215,6 +219,22 @@ export const menu = new p5((sketch) => {
             next_screen = screenName;
             screen_transition_progress = 0;
         }
+    }
+
+    function setScreenImmediate(screenName) {
+        current_screen = screenName;
+        next_screen = null;
+        screen_transition_progress = 0;
+    }
+
+    function stopSelectedApp() {
+        if (!selected_app_name) return;
+        if (!started_apps.includes(selected_app_name)) return;
+
+        sketch.emit("core-app_manager-stop_application", {
+            application_name: selected_app_name,
+        });
+        started_apps = started_apps.filter((name) => name !== selected_app_name);
     }
 
     function drawScreenWithTransition() {
@@ -372,7 +392,8 @@ export const menu = new p5((sketch) => {
 
                 // Détection du survol
                 const is_hovering = checkPointHover(cell_x - cell_width/2, cell_y - cell_height/2, 
-                                                   cell_width, cell_height);
+                                                   cell_width + CELL_HITBOX_PADDING * 2,
+                                                   cell_height + CELL_HITBOX_PADDING * 2);
 
                 // Accumuler le temps de hovering
                 const cell_key = `cell_${idx}`;
@@ -566,10 +587,9 @@ export const menu = new p5((sketch) => {
         }, "btn_pause_restart");
 
         drawButton(0, 110, 220, 50, "Menu", () => {
-            sketch.emit("core-app_manager-stop_application", { 
-                application_name: selected_app_name 
-            });
-            goToScreen(SCREENS.SELECT);
+            stopSelectedApp();
+            setScreenImmediate(SCREENS.SELECT);
+            last_interaction_time = millis();
             audio_back.play();
         }, "btn_pause_menu");
     }
@@ -591,13 +611,18 @@ export const menu = new p5((sketch) => {
 
         // Boutons
         drawButton(-150, 0, 220, 60, "Continuer", () => {
-            current_screen = SCREENS.PLAYING;
+            if (selected_app_name && started_apps.includes(selected_app_name)) {
+                setScreenImmediate(SCREENS.PLAYING);
+            } else {
+                setScreenImmediate(SCREENS.START);
+            }
             last_interaction_time = millis();
             audio_select.play();
         }, "btn_idle_continue");
 
         drawButton(150, 0, 220, 60, "Retour Menu", () => {
-            goToScreen(SCREENS.SELECT);
+            stopSelectedApp();
+            setScreenImmediate(SCREENS.SELECT);
             last_interaction_time = millis();
             audio_back.play();
         }, "btn_idle_menu");
@@ -618,7 +643,12 @@ export const menu = new p5((sketch) => {
     // ========== COMPOSANTS RÉUTILISABLES ==========
     function drawButton(x, y, w, h, label, callback, button_id) {
         button_id = button_id || `btn_${x}_${y}`;
-        const is_hovering = checkPointHover(x - w/2, y - h/2, w, h);
+        const is_hovering = checkPointHover(
+            x - w/2 - BUTTON_HITBOX_PADDING,
+            y - h/2 - BUTTON_HITBOX_PADDING,
+            w + BUTTON_HITBOX_PADDING * 2,
+            h + BUTTON_HITBOX_PADDING * 2
+        );
 
         sketch.push();
         if (is_hovering) {
