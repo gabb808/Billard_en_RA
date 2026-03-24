@@ -167,13 +167,18 @@ export const menu = new p5((sketch) => {
         sketch.textFont(font);
 
         // Render menu as strict 2D UI to avoid depth artifacts on flat color areas.
+        const canUseDepthHint =
+            typeof sketch.hint === "function" &&
+            typeof sketch.DISABLE_DEPTH_TEST !== "undefined" &&
+            typeof sketch.ENABLE_DEPTH_TEST !== "undefined";
+
+        if (canUseDepthHint) {
+            sketch.hint(sketch.DISABLE_DEPTH_TEST);
+        }
+
         const gl = sketch.drawingContext;
-        const canToggleDepth = gl &&
-            typeof gl.disable === "function" &&
-            typeof gl.enable === "function" &&
-            typeof gl.depthMask === "function";
-        if (canToggleDepth) {
-            gl.disable(gl.DEPTH_TEST);
+        const canToggleDepthMask = gl && typeof gl.depthMask === "function";
+        if (canToggleDepthMask) {
             gl.depthMask(false);
         }
 
@@ -198,9 +203,11 @@ export const menu = new p5((sketch) => {
         drawIndexCursor();
         sketch.pop();
 
-        if (canToggleDepth) {
+        if (canToggleDepthMask) {
             gl.depthMask(true);
-            gl.enable(gl.DEPTH_TEST);
+        }
+        if (canUseDepthHint) {
+            sketch.hint(sketch.ENABLE_DEPTH_TEST);
         }
 
         // Debug info
@@ -335,6 +342,7 @@ export const menu = new p5((sketch) => {
     // ========== ÉCRAN 2: SELECT (Catégories + Grille) ==========
     function drawSelectScreen() {
         sketch.push();
+        sketch.noStroke();
         sketch.fill(30, 40, 60); // Fond
         sketch.rect(-width/2, -height/2, width, height);
         sketch.pop();
@@ -513,6 +521,7 @@ export const menu = new p5((sketch) => {
     // ========== ÉCRAN 3: DESCRIPTION ==========
     function drawDescriptionScreen() {
         sketch.push();
+        sketch.noStroke();
         sketch.fill(30, 40, 60);
         sketch.rect(-width/2, -height/2, width, height);
         sketch.pop();
@@ -528,20 +537,22 @@ export const menu = new p5((sketch) => {
         sketch.push();
         sketch.fill(255);
         sketch.textAlign(LEFT, TOP);
-        setUiTextSize(32);
+        sketch.textStyle(BOLD);
+        setUiTextSize(44);
         sketch.text(app_meta.name || selected_app_name, left_x, -height/2 + margin);
 
-        setUiTextSize(14);
+        sketch.textStyle(NORMAL);
+        setUiTextSize(22);
         sketch.fill(200);
         const desc = app_meta.description || "Aucune description";
-        const max_chars = 60;
-        let y = -height/2 + margin + 60;
+        const max_chars = 48;
+        let y = -height/2 + margin + 96;
         const words = desc.split(" ");
         let line = "";
         for (let word of words) {
             if ((line + word).length > max_chars) {
                 sketch.text(line, left_x, y);
-                y += 20;
+                y += 30;
                 line = word + " ";
             } else {
                 line += word + " ";
@@ -561,17 +572,17 @@ export const menu = new p5((sketch) => {
         sketch.pop();
 
         // Boutons en bas
-        const btn_y = height/2 - 120;
+        const btn_y = height/2 - 138;
         const btn_back_x = -width/4;
         const btn_play_x = width/4;
 
-        drawButton(btn_back_x, btn_y + 40, 260, 90, "◄ Retour", () => {
+        drawButton(btn_back_x, btn_y + 48, 340, 120, "◄ Retour", () => {
             goToScreen(SCREENS.SELECT);
             audio_back.play();
         }, "btn_desc_back");
 
         // Big square PLAY button to make launch action obvious.
-        drawButton(btn_play_x, btn_y, 190, 190, "PLAY", () => {
+        drawButton(btn_play_x, btn_y, 240, 240, "PLAY", () => {
             audio_select.play();
             sketch.emit("core-app_manager-start_application", { 
                 application_name: selected_app_name 
@@ -583,9 +594,10 @@ export const menu = new p5((sketch) => {
 
     // ========== ÉCRAN 4: MENU PAUSE ==========
     function drawPauseMenu() {
-        // Fond semi-transparent
+        // Keep pause menu visually on top with an almost opaque backdrop.
         sketch.push();
-        sketch.fill(0, 0, 0, 190);
+        sketch.noStroke();
+        sketch.fill(8, 12, 20, 245);
         sketch.rect(-width/2, -height/2, width, height);
         sketch.pop();
 
@@ -593,6 +605,10 @@ export const menu = new p5((sketch) => {
         const panel_width = 800;
         const panel_height = 700;
         sketch.push();
+        sketch.noStroke();
+        sketch.fill(12, 20, 34, 250);
+        sketch.rect(-panel_width/2 - 12, -panel_height/2 - 12, panel_width + 24, panel_height + 24, 18);
+
         sketch.fill(30, 40, 60);
         sketch.stroke(200, 220, 255);
         sketch.strokeWeight(4);
