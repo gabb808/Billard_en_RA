@@ -19,6 +19,8 @@ let doCalibration = false;
 let calibrationData;
 let calibrationMatrix;
 const calibrationBypassModules = new Set(["menu"]);
+const rotateDisplay180 = true;
+const alreadyRotatedModules = new Set(["triangles_full_lesson", "triangles_short_lesson"]);
 
 function preload() {
     let url = getURLPath();
@@ -59,16 +61,25 @@ function draw() {
                 catch_error(e, module.name, "Update error", true);
             }
             try {
+                module.push();
+
+                // Rotation globale de l'affichage (180 deg) sauf modules deja retournes localement.
+                if (rotateDisplay180 && !alreadyRotatedModules.has(name)) {
+                    if (module._renderer && module._renderer.isP3D) {
+                        module.rotate(module.PI);
+                    } else {
+                        module.translate(module.width, module.height);
+                        module.rotate(module.PI);
+                    }
+                }
+
                 if(doCalibration && !calibrationBypassModules.has(name)) {
-                    module.push();
                     calibrationMatrix.apply(module, 2);
-                    // module.clear();
-                    module.show();
-                    module.pop();
                 }
-                else {
-                    module.show();
-                }
+
+                // module.clear();
+                module.show();
+                module.pop();
             } catch (e) {
                 catch_error(e, module.name, "Show error", true);
             }

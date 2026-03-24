@@ -73,9 +73,13 @@ export const menu = new p5((sketch) => {
     // ========== VARIABLES UTILITY ==========
     let fps = 0;
     let speed_regulator = 1;
+    let frame_delta_ms = 16;
     let first_run = true;
     let canvas_width = 0;
     let canvas_height = 0;
+    const DISPLAY_ROTATED_180 = true;
+    const INDEX_HOVER_RADIUS = 30;
+    const HAND_HOVER_RADIUS = 55;
 
     // ========== PRELOAD ==========
     sketch.preload = () => {
@@ -149,6 +153,7 @@ export const menu = new p5((sketch) => {
 
         fps = Math.round(frameRate());
         speed_regulator = 50 / fps;
+        frame_delta_ms = sketch.deltaTime || (1000 / Math.max(fps, 1));
 
         sketch.clear();
         sketch.fill(255);
@@ -212,7 +217,7 @@ export const menu = new p5((sketch) => {
     function drawScreenWithTransition() {
         // Pas de transition pour l'instant, affichage direct
         if (next_screen && screen_transition_progress < 100) {
-            screen_transition_progress += speed_regulator * (1000 / screen_transition_duration);
+            screen_transition_progress += (frame_delta_ms / screen_transition_duration) * 100;
         }
 
         if (screen_transition_progress >= 100 && next_screen) {
@@ -370,7 +375,7 @@ export const menu = new p5((sketch) => {
                 const cell_key = `cell_${idx}`;
                 if (is_hovering) {
                     if (!cell_hover_times[cell_key]) cell_hover_times[cell_key] = 0;
-                    cell_hover_times[cell_key] += speed_regulator;
+                    cell_hover_times[cell_key] += frame_delta_ms;
                     hovered_cell_idx = idx;
                 } else {
                     cell_hover_times[cell_key] = 0;
@@ -634,7 +639,7 @@ export const menu = new p5((sketch) => {
         // Sélection avec camembert si hovering
         if (is_hovering) {
             if (!button_hover_times[button_id]) button_hover_times[button_id] = 0;
-            button_hover_times[button_id] += speed_regulator;
+            button_hover_times[button_id] += frame_delta_ms;
             
             const hover_time = button_hover_times[button_id];
             drawPieChart(x + w/2 - 25, y - h/2 + 15, 20, hover_time, PIE_CHART_DURATION);
@@ -653,18 +658,52 @@ export const menu = new p5((sketch) => {
 
         // Itérer sur toutes les mains détectées
         for (let hand of hands_position) {
+            if (!hand || hand.length < 21) continue;
+
             // Utiliser l'index (doigt pointeur) de la main
             // Les coordonnées sont normalisées (0-1)
-            let px = hand[8][0] * width;
-            let py = hand[8][1] * height;
+            let index_x = hand[8][0] * width;
+            let index_y = hand[8][1] * height;
+
+            // Si l'affichage est retourne de 180 deg, on retourne aussi les coordonnees de main
+            // pour garder l'alignement interaction <-> rendu.
+            if (DISPLAY_ROTATED_180) {
+                index_x = width - index_x;
+                index_y = height - index_y;
+            }
+
+            // Convertir pour le système de coordonnées WEBGL (-width/2 à width/2)
+            index_x = index_x - width/2;
+            index_y = index_y - height/2;
+
+            // Priorité absolue: index dans le rectangle
+            if (index_x > rect_x && index_x < rect_x + rect_w &&
+                index_y > rect_y && index_y < rect_y + rect_h) {
+                return true;
+            }
+
+            // Tolérance autour de l'index (hitbox plus large)
+            if (index_x > rect_x - INDEX_HOVER_RADIUS && index_x < rect_x + rect_w + INDEX_HOVER_RADIUS &&
+                index_y > rect_y - INDEX_HOVER_RADIUS && index_y < rect_y + rect_h + INDEX_HOVER_RADIUS) {
+                return true;
+            }
+
+            // Fallback main: centre de paume pour compenser les tremblements/occlusions
+            let palm_x = hand[0][0] * width;
+            let palm_y = hand[0][1] * height;
+
+            if (DISPLAY_ROTATED_180) {
+                palm_x = width - palm_x;
+                palm_y = height - palm_y;
+            }
             
             // Convertir pour le système de coordonnées WEBGL (-width/2 à width/2)
-            px = px - width/2;
-            py = py - height/2;
+            palm_x = palm_x - width/2;
+            palm_y = palm_y - height/2;
 
-            if (px > rect_x && px < rect_x + rect_w &&
-                py > rect_y && py < rect_y + rect_h) {
-                return true; // Une main est au-dessus, on retourne vrai
+            if (palm_x > rect_x - HAND_HOVER_RADIUS && palm_x < rect_x + rect_w + HAND_HOVER_RADIUS &&
+                palm_y > rect_y - HAND_HOVER_RADIUS && palm_y < rect_y + rect_h + HAND_HOVER_RADIUS) {
+                return true;
             }
         }
 
