@@ -21,9 +21,9 @@ let calibrationMatrix;
 const calibrationBypassModules = new Set(["menu"]);
 const rotateDisplay180 = true;
 const alreadyRotatedModules = new Set(["triangles_full_lesson", "triangles_short_lesson"]);
-const calibrationXOffsetPx = 72;
+const calibrationXOffsetPx = 0;
 const calibrationYOffsetPx = 0;
-const globalProjectionScale = 0.92;
+const globalProjectionScale = 1.0;
 
 function getAdjustedOutPts(baseOutPts) {
     const centerX = baseOutPts.reduce((acc, pt) => acc + pt[0], 0) / baseOutPts.length;
