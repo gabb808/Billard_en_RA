@@ -16,7 +16,7 @@
     "app_metadata": {
         "rabbits_game": {
             "name": "Rabbits Game",
-            "description": "Jeu éducatif amusant pour apprendre les mathématiques",
+            "description": "Jeu éducatif intéractif et amusant avec des lapins. C'est un jeu libre! Le but est de tirer dans les boules tout en vissant les lapins pour les faire exploser et gagner des points. Parfiat pour travailler votre précisions, et vos calcules d'angles. ",
             "category": "Jeux",
             "icon": "🐰",
             "color": "#FF6B9D",
@@ -24,7 +24,7 @@
         },
         "affine": {
             "name": "Transformations Affines",
-            "description": "Explorez les transformations géométriques affines",
+            "description": "Explorez graphiquement les fonctions affines. Positionnez deux palets sur la table pour faire apparaître et manipuler l'équation et la droite correspondante en temps réel.",
             "category": "Mathématiques",
             "icon": "📐",
             "color": "#4A90E2",
@@ -32,7 +32,7 @@
         },
         "triangles_remarkable_lines": {
             "name": "Lignes Remarquables",
-            "description": "Étudiez les propriétés des triangles",
+            "description": "Découvrez les lignes remarquables des triangles (médiatrices, hauteurs, médianes) en positionnant vos palets. Les constructions géométriques s'animent en temps réel sur la table.",
             "category": "Géométrie",
             "icon": "△",
             "color": "#7ED321",
@@ -40,7 +40,7 @@
         },
         "triangles_full_lesson": {
             "name": "Cours Complet Triangles",
-            "description": "Programme d'apprentissage complet sur les triangles",
+            "description": "Leçon guidée complète de 10 minutes sur les triangles : triangles isocèles et équilatéraux, médiatrices, hauteurs et leurs propriétés remarquables. Inclut un tutoriel, un résumé et un défi chronométré avec score.",
             "category": "Éducation",
             "icon": "📚",
             "color": "#F5A623",
@@ -48,7 +48,7 @@
         },
         "triangles_short_lesson": {
             "name": "Leçon Rapide Triangles",
-            "description": "Introduction courte aux triangles",
+            "description": "Version condensée de la leçon sur les triangles. Idéale pour réviser rapidement les notions de médiatrice et de hauteurs avant un exercice ou une évaluation.",
             "category": "Éducation",
             "icon": "⚡",
             "color": "#B8E986",
