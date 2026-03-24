@@ -77,7 +77,7 @@ export const menu = new p5((sketch) => {
     let first_run = true;
     let canvas_width = 0;
     let canvas_height = 0;
-    const UI_SCALE = 0.72;
+    const UI_SCALE = 0.58;
     const INDEX_HOVER_RADIUS = 40;
     const HAND_HOVER_RADIUS = 70;
     const BUTTON_HITBOX_PADDING = 18;

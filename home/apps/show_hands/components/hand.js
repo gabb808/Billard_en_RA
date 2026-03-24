@@ -42,13 +42,22 @@ export function display_hand(sketch, hand_pose, handedness, show_hands_points, s
     sketch.push();
     // sketch.circle(960, 540, 60);
 
+    const HANDS_FLIP_X = true;
+    const HANDS_FLIP_Y = true;
+    const toCanvas = (pt) => {
+        const nx = HANDS_FLIP_X ? (1 - pt[0]) : pt[0];
+        const ny = HANDS_FLIP_Y ? (1 - pt[1]) : pt[1];
+        return [nx * sketch.width - sketch.width / 2, ny * sketch.height - sketch.height / 2];
+    };
+
     sketch.fill(255,0,255);
     // console.log(hand_pose);
     if (show_hands_points) {
         for (let i = 0; i < hand_pose.length; i++) {
+            const [x, y] = toCanvas(hand_pose[i]);
             sketch.ellipse(
-                hand_pose[i][0] * sketch.width,
-                hand_pose[i][1] * sketch.height,
+                x,
+                y,
                 10
             );
         }
@@ -62,11 +71,13 @@ export function display_hand(sketch, hand_pose, handedness, show_hands_points, s
     ) {
         hand_junctions.forEach(parts => {
             parts.forEach(pair => {
+                const [x1, y1] = toCanvas(hand_pose[pair[0]]);
+                const [x2, y2] = toCanvas(hand_pose[pair[1]]);
                 sketch.line(
-                    hand_pose[pair[0]][0] * sketch.width,
-                    hand_pose[pair[0]][1] * sketch.height,
-                    hand_pose[pair[1]][0] * sketch.width,
-                    hand_pose[pair[1]][1] * sketch.height
+                    x1,
+                    y1,
+                    x2,
+                    y2
                 );
             })
         })
@@ -77,10 +88,11 @@ export function display_hand(sketch, hand_pose, handedness, show_hands_points, s
     if (
         handedness != undefined && handedness.length > 0
     ) {
+        const [hx, hy] = toCanvas(hand_pose[0]);
         sketch.textSize(32);
-        sketch.text(handedness[1], hand_pose[0][0] * sketch.width, 40 + hand_pose[0][1] * sketch.height);
+        sketch.text(handedness[1], hx, hy + 40);
         sketch.textSize(16);
-        sketch.text(handedness[2], hand_pose[0][0] * sketch.width, 65 + hand_pose[0][1] * sketch.height);
+        sketch.text(handedness[2], hx, hy + 65);
     }
 
     // if (

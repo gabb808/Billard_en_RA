@@ -22,6 +22,19 @@ const calibrationBypassModules = new Set(["menu"]);
 const rotateDisplay180 = true;
 const alreadyRotatedModules = new Set(["triangles_full_lesson", "triangles_short_lesson"]);
 const calibrationXOffsetPx = 72;
+const calibrationYOffsetPx = 0;
+const globalProjectionScale = 0.92;
+
+function getAdjustedOutPts(baseOutPts) {
+    const centerX = baseOutPts.reduce((acc, pt) => acc + pt[0], 0) / baseOutPts.length;
+    const centerY = baseOutPts.reduce((acc, pt) => acc + pt[1], 0) / baseOutPts.length;
+
+    return baseOutPts.map((pt) => {
+        const scaledX = centerX + (pt[0] - centerX) * globalProjectionScale;
+        const scaledY = centerY + (pt[1] - centerY) * globalProjectionScale;
+        return [scaledX + calibrationXOffsetPx, scaledY + calibrationYOffsetPx];
+    });
+}
 
 function preload() {
     let url = getURLPath();
@@ -41,7 +54,7 @@ function setup() {
     frameRate(120);
 
     if(doCalibration) {
-        const outPts = calibrationData.outpts.map((pt) => [pt[0] + calibrationXOffsetPx, pt[1]]);
+        const outPts = getAdjustedOutPts(calibrationData.outpts);
         calibrationMatrix = new ProjectionMatrix(
             outPts,
             calibrationData.screen_coords
