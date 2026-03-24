@@ -17,6 +17,35 @@ export const socket = io.connect(window.location.origin, {
 
 socket_link = socket;
 
+function applyCommonRenderConfig(application_name) {
+    if (!Object.keys(modules).includes(application_name)) return;
+
+    const app = modules[application_name];
+
+    try {
+        // Keep rendering deterministic across GPUs and avoid subpixel hatch artifacts.
+        if (typeof app.pixelDensity === "function") {
+            app.pixelDensity(1);
+        }
+        if (typeof app.noSmooth === "function") {
+            app.noSmooth();
+        }
+
+        const gl = app.drawingContext;
+        if (gl && typeof gl.disable === "function") {
+            if (typeof gl.DITHER !== "undefined") gl.disable(gl.DITHER);
+            if (typeof gl.SAMPLE_ALPHA_TO_COVERAGE !== "undefined") gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+            if (typeof gl.SAMPLE_COVERAGE !== "undefined") gl.disable(gl.SAMPLE_COVERAGE);
+        }
+
+        if (app.selfCanvas && app.selfCanvas.elt) {
+            app.selfCanvas.elt.style.imageRendering = "pixelated";
+        }
+    } catch (e) {
+        console.warn("Render config warning for " + application_name, e);
+    }
+}
+
 async function loadFreshApplication(application_name) {
     const modulePath = "./home/apps/" + application_name + "/display.js?v=" + Date.now();
     const module = await import(modulePath);
@@ -28,6 +57,7 @@ async function loadFreshApplication(application_name) {
 
     application.set(window.innerWidth, window.innerHeight, socket);
     modules[application_name] = application;
+    applyCommonRenderConfig(application_name);
 }
 
 function disposeApplication(application_name) {
