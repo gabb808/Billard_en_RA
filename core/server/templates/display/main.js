@@ -93,7 +93,13 @@ function setup() {
 function draw() {
     background(0);
 
-    for (const [name, module] of Object.entries(modules)) {
+    const drawEntries = Object.entries(modules).sort(([nameA], [nameB]) => {
+        if (nameA === "menu") return 1;
+        if (nameB === "menu") return -1;
+        return 0;
+    });
+
+    for (const [name, module] of drawEntries) {
         let start = window.performance.now();
         if (module.activated) {
             try {
