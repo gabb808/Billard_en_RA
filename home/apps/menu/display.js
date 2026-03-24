@@ -177,6 +177,7 @@ export const menu = new p5((sketch) => {
         // Si dans SELECT et inactivité > 2 min => START
         if (current_screen === SCREENS.SELECT && timeSinceInteraction > select_timeout) {
             goToScreen(SCREENS.START);
+            select_inactivity_start = 0; // Reset pour la prochaine visite
         }
 
         // Si dans IDLE et countdown écoulé => START
@@ -639,35 +640,43 @@ export const menu = new p5((sketch) => {
 
     function checkPointHover(rect_x, rect_y, rect_w, rect_h) {
         if (hands_position.length === 0) return false;
-        
-        // Utiliser l'index (doigt pointeur) de la main 1
-        // Les coordonnées sont normalisées (0-1)
-        let px = hands_position[0][8][0] * width;
-        let py = hands_position[0][8][1] * height;
-        
-        // Convertir pour le système de coordonnées WEBGL (-width/2 à width/2)
-        px = px - width/2;
-        py = py - height/2;
 
-        return px > rect_x && px < rect_x + rect_w &&
-               py > rect_y && py < rect_y + rect_h;
+        // Itérer sur toutes les mains détectées
+        for (let hand of hands_position) {
+            // Utiliser l'index (doigt pointeur) de la main
+            // Les coordonnées sont normalisées (0-1)
+            let px = hand[8][0] * width;
+            let py = hand[8][1] * height;
+            
+            // Convertir pour le système de coordonnées WEBGL (-width/2 à width/2)
+            px = px - width/2;
+            py = py - height/2;
+
+            if (px > rect_x && px < rect_x + rect_w &&
+                py > rect_y && py < rect_y + rect_h) {
+                return true; // Une main est au-dessus, on retourne vrai
+            }
+        }
+
+        return false; // Aucune main n'est au-dessus
     }
 
     // ========== GESTION DES GESTES ==========
-    function setupPauseGestureDetection() {
-        pause_gesture_frames = 0;
-    }
-
     function checkPauseGesture() {
         if (hands_position.length < 2) return;
 
-        // Distance horizontale entre les deux index
+        // Coordonnées des deux index
         const hand1_x = hands_position[0][8][0] * width;
+        const hand1_y = hands_position[0][8][1] * height;
         const hand2_x = hands_position[1][8][0] * width;
+        const hand2_y = hands_position[1][8][1] * height;
+        
         const horizontal_distance = Math.abs(hand1_x - hand2_x);
+        const vertical_distance = Math.abs(hand1_y - hand2_y);
 
         // Si les mains sont écartées horizontalement (> 300px)
-        if (horizontal_distance > pause_gesture_threshold) {
+        // ET verticalement proches (< 150px)
+        if (horizontal_distance > pause_gesture_threshold && vertical_distance < 150) {
             pause_gesture_frames++;
             if (pause_gesture_frames > 15) { // ~0.25s à 60fps
                 current_screen = SCREENS.PAUSE;
@@ -704,10 +713,18 @@ export const menu = new p5((sketch) => {
     }
 
     function updateTimings() {
-        // Auto-sync les timeouts selon l'état actuel
-        if (current_screen === SCREENS.SELECT && select_inactivity_start === 0) {
-            select_inactivity_start = millis();
+        // Mettre à jour le timer d'inactivité du menu SELECT
+        if (current_screen === SCREENS.SELECT) {
+            const now = millis();
+            // Si une interaction a eu lieu, on reset le timer
+            if (now - last_interaction_time < 100) {
+                select_inactivity_start = now;
+            }
         }
+    }
+
+    function setupPauseGestureDetection() {
+        pause_gesture_frames = 0;
     }
 
     function drawDebugInfo() {
