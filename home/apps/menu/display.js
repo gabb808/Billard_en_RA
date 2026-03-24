@@ -111,6 +111,13 @@ export const menu = new p5((sketch) => {
         canvas_width = width;
         canvas_height = height;
 
+        // Favor stable opaque rendering under projective warping.
+        if (typeof sketch.setAttributes === "function") {
+            sketch.setAttributes("alpha", false);
+            sketch.setAttributes("antialias", true);
+            sketch.setAttributes("premultipliedAlpha", true);
+        }
+
         sketch.selfCanvas = sketch
             .createCanvas(width, height, sketch.WEBGL)
             .position(0, 0);
@@ -218,6 +225,36 @@ export const menu = new p5((sketch) => {
         sketch.textSize(Math.round(size * TEXT_SCALE));
     }
 
+    function drawSolidBackground(r, g, b) {
+        sketch.push();
+        sketch.noStroke();
+        sketch.fill(r, g, b, 255);
+        // Slight overscan prevents 1px edge artifacts after projection transform.
+        sketch.rect(-width/2 - 6, -height/2 - 6, width + 12, height + 12);
+        sketch.pop();
+    }
+
+    function drawWrappedText(text, x, y, maxWidth, lineHeight) {
+        const words = (text || "").split(/\s+/);
+        let line = "";
+        let cursorY = y;
+
+        for (const word of words) {
+            const candidate = line ? `${line} ${word}` : word;
+            if (sketch.textWidth(candidate) > maxWidth && line) {
+                sketch.text(line, x, cursorY);
+                line = word;
+                cursorY += lineHeight;
+            } else {
+                line = candidate;
+            }
+        }
+
+        if (line) {
+            sketch.text(line, x, cursorY);
+        }
+    }
+
     // ========== GESTION D'ÉTAT DES ÉCRANS ==========
     function determineScreen() {
         const now = millis();
@@ -309,10 +346,7 @@ export const menu = new p5((sketch) => {
 
     // ========== ÉCRAN 1: START ==========
     function drawStartScreen() {
-        sketch.push();
-        sketch.fill(20, 30, 50); // Fond sombre
-        sketch.rect(-width/2, -height/2, width, height);
-        sketch.pop();
+        drawSolidBackground(20, 30, 50);
 
         // Titre "Interactive Pool"
         sketch.push();
@@ -341,11 +375,7 @@ export const menu = new p5((sketch) => {
 
     // ========== ÉCRAN 2: SELECT (Catégories + Grille) ==========
     function drawSelectScreen() {
-        sketch.push();
-        sketch.noStroke();
-        sketch.fill(30, 40, 60); // Fond
-        sketch.rect(-width/2, -height/2, width, height);
-        sketch.pop();
+        drawSolidBackground(30, 40, 60);
 
         // Bannière catégories en haut
         drawCategoryBanner();
@@ -520,11 +550,7 @@ export const menu = new p5((sketch) => {
 
     // ========== ÉCRAN 3: DESCRIPTION ==========
     function drawDescriptionScreen() {
-        sketch.push();
-        sketch.noStroke();
-        sketch.fill(30, 40, 60);
-        sketch.rect(-width/2, -height/2, width, height);
-        sketch.pop();
+        drawSolidBackground(30, 40, 60);
 
         if (!selected_app_name) return;
 
@@ -533,32 +559,27 @@ export const menu = new p5((sketch) => {
         const left_section_width = width/2 - margin * 2;
         const left_x = -width/4 - margin;
 
+        // Left content panel for cleaner typography and readability.
+        sketch.push();
+        sketch.noStroke();
+        sketch.fill(23, 31, 47, 255);
+        sketch.rect(left_x - 22, -height/2 + margin - 18, left_section_width + 44, 312, 12);
+        sketch.pop();
+
         // Section gauche: Titre + Description
         sketch.push();
         sketch.fill(255);
         sketch.textAlign(LEFT, TOP);
         sketch.textStyle(BOLD);
-        setUiTextSize(44);
+        setUiTextSize(36);
         sketch.text(app_meta.name || selected_app_name, left_x, -height/2 + margin);
 
         sketch.textStyle(NORMAL);
-        setUiTextSize(22);
+        setUiTextSize(18);
+        sketch.textLeading(34);
         sketch.fill(200);
         const desc = app_meta.description || "Aucune description";
-        const max_chars = 48;
-        let y = -height/2 + margin + 96;
-        const words = desc.split(" ");
-        let line = "";
-        for (let word of words) {
-            if ((line + word).length > max_chars) {
-                sketch.text(line, left_x, y);
-                y += 30;
-                line = word + " ";
-            } else {
-                line += word + " ";
-            }
-        }
-        sketch.text(line, left_x, y);
+        drawWrappedText(desc, left_x, -height/2 + margin + 98, left_section_width - 10, 34);
         sketch.pop();
 
         // Section droite: Image placeholder
@@ -582,7 +603,7 @@ export const menu = new p5((sketch) => {
         }, "btn_desc_back");
 
         // Big square PLAY button to make launch action obvious.
-        drawButton(btn_play_x, btn_y, 240, 240, "PLAY", () => {
+        drawButton(btn_play_x, btn_y, 240, 240, "JOUER", () => {
             audio_select.play();
             sketch.emit("core-app_manager-start_application", { 
                 application_name: selected_app_name 
@@ -729,7 +750,8 @@ export const menu = new p5((sketch) => {
         sketch.push();
         sketch.fill(255);
         sketch.textAlign(CENTER, CENTER);
-        setUiTextSize(24);
+        const buttonTextSize = Math.max(18, Math.min(30, Math.round(h * 0.26)));
+        setUiTextSize(buttonTextSize);
         sketch.text(label, x, y);
         sketch.pop();
 
