@@ -38,11 +38,13 @@ function getAdjustedOutPts(baseOutPts) {
 }
 
 function getRuntimeInPts() {
+    const halfW = window.innerWidth / 2;
+    const halfH = window.innerHeight / 2;
     return [
-        [0, 0],
-        [0, window.innerHeight],
-        [window.innerWidth, 0],
-        [window.innerWidth, window.innerHeight],
+        [-halfW, -halfH],
+        [-halfW, halfH],
+        [halfW, -halfH],
+        [halfW, halfH],
     ];
 }
 
