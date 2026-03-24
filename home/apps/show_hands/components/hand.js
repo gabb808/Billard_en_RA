@@ -42,7 +42,7 @@ export function display_hand(sketch, hand_pose, handedness, show_hands_points, s
     sketch.push();
     // sketch.circle(960, 540, 60);
 
-    const HANDS_FLIP_X = true;
+    const HANDS_FLIP_X = false;
     const HANDS_FLIP_Y = false;
     const toCanvas = (pt) => {
         const nx = HANDS_FLIP_X ? (1 - pt[0]) : pt[0];

@@ -77,7 +77,8 @@ export const menu = new p5((sketch) => {
     let first_run = true;
     let canvas_width = 0;
     let canvas_height = 0;
-    const UI_SCALE = 0.52;
+    const UI_SCALE = 0.62;
+    const MENU_ROTATE_180 = true;
     const INDEX_HOVER_RADIUS = 40;
     const HAND_HOVER_RADIUS = 70;
     const BUTTON_HITBOX_PADDING = 18;
@@ -177,6 +178,9 @@ export const menu = new p5((sketch) => {
         // Afficher l'écran avec transition douce
         sketch.push();
         sketch.scale(UI_SCALE);
+        if (MENU_ROTATE_180) {
+            sketch.rotate(PI);
+        }
         drawScreenWithTransition();
         sketch.pop();
 
@@ -696,7 +700,7 @@ export const menu = new p5((sketch) => {
 
             // Utiliser l'index (doigt pointeur) de la main
             // Les coordonnées sont normalisées (0-1)
-            let index_x = (1 - hand[8][0]) * width;
+            let index_x = hand[8][0] * width;
             let index_y = hand[8][1] * height;
 
             // Convertir pour le système de coordonnées WEBGL (-width/2 à width/2)
@@ -706,6 +710,12 @@ export const menu = new p5((sketch) => {
             // Le rendu UI est réduit via scale(UI_SCALE), on remonte en coordonnées UI logiques.
             index_x = index_x / UI_SCALE;
             index_y = index_y / UI_SCALE;
+
+            // Le menu est visuellement retourne de 180 deg.
+            if (MENU_ROTATE_180) {
+                index_x = -index_x;
+                index_y = -index_y;
+            }
 
             // Priorité absolue: index dans le rectangle
             if (index_x > rect_x && index_x < rect_x + rect_w &&
@@ -720,7 +730,7 @@ export const menu = new p5((sketch) => {
             }
 
             // Fallback main: centre de paume pour compenser les tremblements/occlusions
-            let palm_x = (1 - hand[0][0]) * width;
+            let palm_x = hand[0][0] * width;
             let palm_y = hand[0][1] * height;
             
             // Convertir pour le système de coordonnées WEBGL (-width/2 à width/2)
@@ -730,6 +740,11 @@ export const menu = new p5((sketch) => {
             // Conversion vers le même repère logique que les éléments UI dessinés.
             palm_x = palm_x / UI_SCALE;
             palm_y = palm_y / UI_SCALE;
+
+            if (MENU_ROTATE_180) {
+                palm_x = -palm_x;
+                palm_y = -palm_y;
+            }
 
             if (palm_x > rect_x - HAND_HOVER_RADIUS && palm_x < rect_x + rect_w + HAND_HOVER_RADIUS &&
                 palm_y > rect_y - HAND_HOVER_RADIUS && palm_y < rect_y + rect_h + HAND_HOVER_RADIUS) {
