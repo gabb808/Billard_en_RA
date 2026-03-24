@@ -19,7 +19,8 @@ let doCalibration = false;
 let calibrationData;
 let calibrationMatrix;
 const calibrationBypassModules = new Set(["menu"]);
-const rotateDisplay180 = true;
+// Keep runtime projection aligned with calibration_data.json without extra transforms.
+const rotateDisplay180 = false;
 const alreadyRotatedModules = new Set(["triangles_full_lesson", "triangles_short_lesson"]);
 const calibrationXOffsetPx = 0;
 const calibrationYOffsetPx = 0;
