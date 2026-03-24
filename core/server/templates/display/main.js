@@ -37,6 +37,15 @@ function getAdjustedOutPts(baseOutPts) {
     });
 }
 
+function getRuntimeInPts() {
+    return [
+        [0, 0],
+        [0, window.innerHeight],
+        [window.innerWidth, 0],
+        [window.innerWidth, window.innerHeight],
+    ];
+}
+
 function preload() {
     let url = getURLPath();
     url.splice(-1);
@@ -58,7 +67,7 @@ function setup() {
         const outPts = getAdjustedOutPts(calibrationData.outpts);
         calibrationMatrix = new ProjectionMatrix(
             outPts,
-            calibrationData.screen_coords
+            getRuntimeInPts()
         );
         calibrationMatrix.edit = true;
     }
@@ -107,6 +116,12 @@ function draw() {
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
+
+    if (doCalibration && calibrationData && calibrationData.outpts) {
+        const outPts = getAdjustedOutPts(calibrationData.outpts);
+        calibrationMatrix = new ProjectionMatrix(outPts, getRuntimeInPts());
+        calibrationMatrix.edit = true;
+    }
 }
 
 function record_performance(module_name, time) {
