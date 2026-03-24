@@ -77,6 +77,7 @@ export const menu = new p5((sketch) => {
     let first_run = true;
     let canvas_width = 0;
     let canvas_height = 0;
+    let calibration_center_offset = { x: 0, y: 0 };
     const UI_SCALE = 0.52;
     const INDEX_HOVER_RADIUS = 40;
     const HAND_HOVER_RADIUS = 70;
@@ -98,6 +99,17 @@ export const menu = new p5((sketch) => {
             if (data.app_metadata) {
                 app_metadata = data.app_metadata;
                 organizeByCategories();
+            }
+
+            if (data.calibrate) {
+                loadJSON("/" + url + "/platform/home/calibration_data.json", (calib) => {
+                    if (calib && calib.outpts && calib.outpts.length === 4) {
+                        const cx = calib.outpts.reduce((acc, pt) => acc + pt[0], 0) / calib.outpts.length;
+                        const cy = calib.outpts.reduce((acc, pt) => acc + pt[1], 0) / calib.outpts.length;
+                        calibration_center_offset = { x: cx, y: cy };
+                        centerCanvas();
+                    }
+                });
             }
         });
     };
@@ -808,9 +820,10 @@ export const menu = new p5((sketch) => {
     function centerCanvas() {
         if (!sketch.selfCanvas) return;
 
-        // Keep menu canvas aligned with other app canvases.
-        // Physical centering must be handled by the global calibration matrix.
-        sketch.selfCanvas.position(0, 0);
+        // Align menu canvas around the calibrated projection center.
+        const x = Math.floor((window.innerWidth - canvas_width) / 2 + calibration_center_offset.x);
+        const y = Math.floor((window.innerHeight - canvas_height) / 2 + calibration_center_offset.y);
+        sketch.selfCanvas.position(x, y);
     }
 
     function drawDebugInfo() {
