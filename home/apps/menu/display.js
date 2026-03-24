@@ -168,8 +168,14 @@ export const menu = new p5((sketch) => {
 
         // Render menu as strict 2D UI to avoid depth artifacts on flat color areas.
         const gl = sketch.drawingContext;
-        gl.disable(gl.DEPTH_TEST);
-        gl.depthMask(false);
+        const canToggleDepth = gl &&
+            typeof gl.disable === "function" &&
+            typeof gl.enable === "function" &&
+            typeof gl.depthMask === "function";
+        if (canToggleDepth) {
+            gl.disable(gl.DEPTH_TEST);
+            gl.depthMask(false);
+        }
 
         // Mise à jour du timing
         updateTimings();
@@ -192,8 +198,10 @@ export const menu = new p5((sketch) => {
         drawIndexCursor();
         sketch.pop();
 
-        gl.depthMask(true);
-        gl.enable(gl.DEPTH_TEST);
+        if (canToggleDepth) {
+            gl.depthMask(true);
+            gl.enable(gl.DEPTH_TEST);
+        }
 
         // Debug info
         drawDebugInfo();
