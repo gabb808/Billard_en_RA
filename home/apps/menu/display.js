@@ -808,10 +808,9 @@ export const menu = new p5((sketch) => {
     function centerCanvas() {
         if (!sketch.selfCanvas) return;
 
-        const x = Math.max(0, Math.floor((windowWidth - canvas_width) / 2));
-        const y = Math.max(0, Math.floor((windowHeight - canvas_height) / 2));
-
-        sketch.selfCanvas.position(x, y);
+        // Keep menu canvas aligned with other app canvases.
+        // Physical centering must be handled by the global calibration matrix.
+        sketch.selfCanvas.position(0, 0);
     }
 
     function drawDebugInfo() {
