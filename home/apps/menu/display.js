@@ -75,6 +75,7 @@ export const menu = new p5((sketch) => {
     let speed_regulator = 1;
     let frame_delta_ms = 16;
     let first_run = true;
+    let gl_render_state_initialized = false;
     let canvas_width = 0;
     let canvas_height = 0;
     const UI_SCALE = 0.62;
@@ -168,7 +169,8 @@ export const menu = new p5((sketch) => {
         speed_regulator = 50 / fps;
         frame_delta_ms = sketch.deltaTime || (1000 / Math.max(fps, 1));
 
-        sketch.clear();
+        // Start from an opaque frame to avoid transparent resolve artifacts.
+        sketch.background(0, 0, 0);
         sketch.fill(255);
         sketch.stroke(255);
         sketch.textFont(font);
@@ -184,6 +186,13 @@ export const menu = new p5((sketch) => {
         }
 
         const gl = sketch.drawingContext;
+        if (!gl_render_state_initialized && gl) {
+            // Disable hardware dithering to avoid visible hatch pattern on flat areas.
+            if (typeof gl.disable === "function" && typeof gl.DITHER !== "undefined") {
+                gl.disable(gl.DITHER);
+            }
+            gl_render_state_initialized = true;
+        }
         const canToggleDepthMask = gl && typeof gl.depthMask === "function";
         if (canToggleDepthMask) {
             gl.depthMask(false);
@@ -615,10 +624,10 @@ export const menu = new p5((sketch) => {
 
     // ========== ÉCRAN 4: MENU PAUSE ==========
     function drawPauseMenu() {
-        // Keep pause menu visually on top with an almost opaque backdrop.
+        // Keep pause menu visually on top with a fully opaque backdrop.
         sketch.push();
         sketch.noStroke();
-        sketch.fill(8, 12, 20, 245);
+        sketch.fill(8, 12, 20, 255);
         sketch.rect(-width/2, -height/2, width, height);
         sketch.pop();
 
@@ -627,7 +636,7 @@ export const menu = new p5((sketch) => {
         const panel_height = 700;
         sketch.push();
         sketch.noStroke();
-        sketch.fill(12, 20, 34, 250);
+        sketch.fill(12, 20, 34, 255);
         sketch.rect(-panel_width/2 - 12, -panel_height/2 - 12, panel_width + 24, panel_height + 24, 18);
 
         sketch.fill(30, 40, 60);
@@ -672,7 +681,8 @@ export const menu = new p5((sketch) => {
     // ========== ÉCRAN 5: IDLE ==========
     function drawIdleScreen() {
         sketch.push();
-        sketch.fill(0, 0, 0, 190);
+        sketch.noStroke();
+        sketch.fill(0, 0, 0, 255);
         sketch.rect(-width/2, -height/2, width, height);
         sketch.pop();
 

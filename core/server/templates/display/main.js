@@ -19,6 +19,7 @@ let doCalibration = false;
 let calibrationData;
 let calibrationMatrixTopLeft;
 let calibrationMatrixCentered;
+const moduleRenderStateInitialized = new Set();
 const calibrationBypassModules = new Set();
 const centeredCoordinateModules = new Set(["menu", "show_hands"]);
 // Keep runtime projection aligned with calibration_data.json without extra transforms.
@@ -109,6 +110,14 @@ function draw() {
             }
             try {
                 module.push();
+
+                if (!moduleRenderStateInitialized.has(name) && module.drawingContext) {
+                    const moduleGl = module.drawingContext;
+                    if (typeof moduleGl.disable === "function" && typeof moduleGl.DITHER !== "undefined") {
+                        moduleGl.disable(moduleGl.DITHER);
+                    }
+                    moduleRenderStateInitialized.add(name);
+                }
 
                 // Rotation globale de l'affichage (180 deg) sauf modules deja retournes localement.
                 if (rotateDisplay180 && !alreadyRotatedModules.has(name)) {
