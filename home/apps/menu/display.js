@@ -77,7 +77,7 @@ export const menu = new p5((sketch) => {
     let first_run = true;
     let canvas_width = 0;
     let canvas_height = 0;
-    const DISPLAY_ROTATED_180 = true;
+    const UI_SCALE = 0.72;
     const INDEX_HOVER_RADIUS = 30;
     const HAND_HOVER_RADIUS = 55;
 
@@ -172,7 +172,10 @@ export const menu = new p5((sketch) => {
         determineScreen();
 
         // Afficher l'écran avec transition douce
+        sketch.push();
+        sketch.scale(UI_SCALE);
         drawScreenWithTransition();
+        sketch.pop();
 
         // Debug info
         drawDebugInfo();
@@ -665,16 +668,13 @@ export const menu = new p5((sketch) => {
             let index_x = hand[8][0] * width;
             let index_y = hand[8][1] * height;
 
-            // Si l'affichage est retourne de 180 deg, on retourne aussi les coordonnees de main
-            // pour garder l'alignement interaction <-> rendu.
-            if (DISPLAY_ROTATED_180) {
-                index_x = width - index_x;
-                index_y = height - index_y;
-            }
-
             // Convertir pour le système de coordonnées WEBGL (-width/2 à width/2)
             index_x = index_x - width/2;
             index_y = index_y - height/2;
+
+            // Le rendu UI est réduit via scale(UI_SCALE), on remonte en coordonnées UI logiques.
+            index_x = index_x / UI_SCALE;
+            index_y = index_y / UI_SCALE;
 
             // Priorité absolue: index dans le rectangle
             if (index_x > rect_x && index_x < rect_x + rect_w &&
@@ -691,15 +691,14 @@ export const menu = new p5((sketch) => {
             // Fallback main: centre de paume pour compenser les tremblements/occlusions
             let palm_x = hand[0][0] * width;
             let palm_y = hand[0][1] * height;
-
-            if (DISPLAY_ROTATED_180) {
-                palm_x = width - palm_x;
-                palm_y = height - palm_y;
-            }
             
             // Convertir pour le système de coordonnées WEBGL (-width/2 à width/2)
             palm_x = palm_x - width/2;
             palm_y = palm_y - height/2;
+
+            // Conversion vers le même repère logique que les éléments UI dessinés.
+            palm_x = palm_x / UI_SCALE;
+            palm_y = palm_y / UI_SCALE;
 
             if (palm_x > rect_x - HAND_HOVER_RADIUS && palm_x < rect_x + rect_w + HAND_HOVER_RADIUS &&
                 palm_y > rect_y - HAND_HOVER_RADIUS && palm_y < rect_y + rect_h + HAND_HOVER_RADIUS) {
