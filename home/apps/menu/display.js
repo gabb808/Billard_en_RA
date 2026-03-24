@@ -74,6 +74,8 @@ export const menu = new p5((sketch) => {
     let fps = 0;
     let speed_regulator = 1;
     let first_run = true;
+    let canvas_width = 0;
+    let canvas_height = 0;
 
     // ========== PRELOAD ==========
     sketch.preload = () => {
@@ -96,9 +98,15 @@ export const menu = new p5((sketch) => {
 
     // ========== SETUP ==========
     sketch.set = (width, height, sock) => {
+        canvas_width = width;
+        canvas_height = height;
+
         sketch.selfCanvas = sketch
             .createCanvas(width, height, sketch.WEBGL)
             .position(0, 0);
+
+        centerCanvas();
+
         sketch.activated = true;
         socket = sock;
 
@@ -128,7 +136,9 @@ export const menu = new p5((sketch) => {
     sketch.resume = () => {};
     sketch.pause = () => {};
     sketch.update = () => {};
-    sketch.windowResized = () => resizeCanvas(windowWidth, windowHeight);
+    sketch.windowResized = () => {
+        centerCanvas();
+    };
 
     // ========== MAIN DRAW LOOP ==========
     sketch.show = () => {
@@ -725,6 +735,15 @@ export const menu = new p5((sketch) => {
 
     function setupPauseGestureDetection() {
         pause_gesture_frames = 0;
+    }
+
+    function centerCanvas() {
+        if (!sketch.selfCanvas) return;
+
+        const x = Math.max(0, Math.floor((windowWidth - canvas_width) / 2));
+        const y = Math.max(0, Math.floor((windowHeight - canvas_height) / 2));
+
+        sketch.selfCanvas.position(x, y);
     }
 
     function drawDebugInfo() {
