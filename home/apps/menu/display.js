@@ -77,7 +77,6 @@ export const menu = new p5((sketch) => {
     let first_run = true;
     let canvas_width = 0;
     let canvas_height = 0;
-    let calibration_center_offset = { x: 0, y: 0 };
     const UI_SCALE = 0.52;
     const INDEX_HOVER_RADIUS = 40;
     const HAND_HOVER_RADIUS = 70;
@@ -101,16 +100,6 @@ export const menu = new p5((sketch) => {
                 organizeByCategories();
             }
 
-            if (data.calibrate) {
-                loadJSON("/" + url + "/platform/home/calibration_data.json", (calib) => {
-                    if (calib && calib.outpts && calib.outpts.length === 4) {
-                        const cx = calib.outpts.reduce((acc, pt) => acc + pt[0], 0) / calib.outpts.length;
-                        const cy = calib.outpts.reduce((acc, pt) => acc + pt[1], 0) / calib.outpts.length;
-                        calibration_center_offset = { x: cx, y: cy };
-                        centerCanvas();
-                    }
-                });
-            }
         });
     };
 
@@ -707,7 +696,7 @@ export const menu = new p5((sketch) => {
 
             // Utiliser l'index (doigt pointeur) de la main
             // Les coordonnées sont normalisées (0-1)
-            let index_x = hand[8][0] * width;
+            let index_x = (1 - hand[8][0]) * width;
             let index_y = hand[8][1] * height;
 
             // Convertir pour le système de coordonnées WEBGL (-width/2 à width/2)
@@ -731,7 +720,7 @@ export const menu = new p5((sketch) => {
             }
 
             // Fallback main: centre de paume pour compenser les tremblements/occlusions
-            let palm_x = hand[0][0] * width;
+            let palm_x = (1 - hand[0][0]) * width;
             let palm_y = hand[0][1] * height;
             
             // Convertir pour le système de coordonnées WEBGL (-width/2 à width/2)
@@ -820,10 +809,8 @@ export const menu = new p5((sketch) => {
     function centerCanvas() {
         if (!sketch.selfCanvas) return;
 
-        // Align menu canvas around the calibrated projection center.
-        const x = Math.floor((window.innerWidth - canvas_width) / 2 + calibration_center_offset.x);
-        const y = Math.floor((window.innerHeight - canvas_height) / 2 + calibration_center_offset.y);
-        sketch.selfCanvas.position(x, y);
+        // Keep menu canvas in the same DOM origin as other modules.
+        sketch.selfCanvas.position(0, 0);
     }
 
     function drawDebugInfo() {
