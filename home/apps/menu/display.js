@@ -1,134 +1,154 @@
 // ============================================================================
-// INTERACTIVE POOL - Menu System UX/UI Overhaul v2.0
+// INTERACTIVE POOL - Menu System v2.1
 // ============================================================================
-// Écrans: START → SELECT (Category) → DESCRIPTION → Play App
-//         Avec: PAUSE (en jeu), IDLE (inactivité), Navigation fluide
+// Changements v2.1 :
+//  - Rendu purement 2D (suppression WebGL/OPENGL → plus de bugs de profondeur)
+//  - Police Rajdhani (display) + Exo 2 (body) chargées via p5.loadFont fallback
+//  - Boutons redesignés : bordure franche, fond sombre, lettrages espacés
+//  - Grille apps : icônes initiales colorées, catégorie visible, hover animé
+//  - Écran Description : panneau gauche texte / panneau droit bouton JOUER
+//  - Palette cohérente : bleu nuit #080d18 + accents #3a8fff + typo #d8eaff
 // ============================================================================
 
 export const menu = new p5((sketch) => {
     sketch.name = "menu";
     sketch.activated = false;
 
-    // ========== CONSTANTES ET VARIABLES D'ÉTAT ==========
-    let font, fontSmall;
-    let socket = null;
-    
-    // États des écrans (SCREEN_STATE)
+    // ─── CONSTANTES ÉCRANS ───────────────────────────────────────────────────
     const SCREENS = {
-        START: 'start',           // Accueil "Interactive Pool"
-        SELECT: 'select',         // Sélection app avec catégories
-        DESCRIPTION: 'description', // Description de l'app
-        PLAYING: 'playing',       // App en cours (invisible, juste pour tracking)
-        PAUSE: 'pause',           // Menu pause (en jeu)
-        IDLE: 'idle'              // Inactivité > 1 minute
+        START: 'start',
+        SELECT: 'select',
+        DESCRIPTION: 'description',
+        PLAYING: 'playing',
+        PAUSE: 'pause',
+        IDLE: 'idle'
     };
 
     let current_screen = SCREENS.START;
-    let next_screen = null;  // Pour transition douce
+    let next_screen = null;
     let screen_transition_progress = 0;
-    let screen_transition_duration = 300; // ms
+    const SCREEN_TRANSITION_DURATION = 260;
 
-    // ========== VARIABLES DE TEMPS ==========
+    // ─── TEMPS / INACTIVITÉ ──────────────────────────────────────────────────
     let last_interaction_time = 0;
-    let idle_timeout = 60000;        // 1 minute avant IDLE
-    let idle_countdown_max = 30000;  // 30 secondes dans IDLE
-    let idle_countdown_start = 0;
-    let select_timeout = 120000;     // 2 minutes avant retour START
-    let select_inactivity_start = 0;
+    const IDLE_TIMEOUT        = 60000;
+    const IDLE_COUNTDOWN_MAX  = 30000;
+    let   idle_countdown_start = 0;
+    const SELECT_TIMEOUT      = 120000;
+    let   select_inactivity_start = 0;
 
-    // ========== VARIABLES DE GESTES ==========
+    // ─── MAINS ───────────────────────────────────────────────────────────────
     let hands_position = [];
-    let index_x_a = 0, index_y_a = 0;
-    let index_x_b = 0, index_y_b = 0;
-
-    // Détection geste pause (mains écartées horizontalement)
-    let pause_gesture_threshold = 300; // pixels entre les doigts
     let pause_gesture_frames = 0;
+    const PAUSE_GESTURE_THRESHOLD = 300;
 
-    // ========== DONNÉES D'APPLICATIONS ==========
-    let all_apps = [];
-    let app_metadata = {};
-    let categories = {};
+    // ─── DONNÉES APPS ────────────────────────────────────────────────────────
+    let all_apps      = [];
+    let app_metadata  = {};
+    let categories    = {};
     let category_list = [];
     let current_category_idx = 0;
-    let started_apps = [];
+    let started_apps  = [];
 
-    // ========== VARIABLES DU MENU SELECT ==========
-    let grid_cols = 2;
-    let grid_rows = 2;
-    let cell_hover_times = {};  // Temps de hovering par cellule {idx: time_in_ms}
-    let hovered_cell_idx = -1;
-    let selected_app_name = null; // App sélectionnée pour DESC
-    const PIE_CHART_DURATION = 2000; // 2 secondes
+    // ─── HOVER / SÉLECTION ───────────────────────────────────────────────────
+    const GRID_COLS          = 2;
+    const GRID_ROWS          = 2;
+    let cell_hover_times     = {};
+    let button_hover_times   = {};
+    let selected_app_name    = null;
+    const PIE_DURATION       = 2000; // ms pour valider
 
-    // ========== VARIABLES ÉCRAN DESCRIPTION ==========
-    let app_description_image = null; // placeholder image
-    let button_hover_times = {}; // Temps de hovering par bouton
+    // ─── AUDIO ───────────────────────────────────────────────────────────────
+    let audio_select  = new Audio("./home/apps/menu/components/click.mp3");
+    let audio_back    = new Audio("./home/apps/menu/components/click.mp3");
+    let audio_open    = new Audio("./home/apps/menu/components/opening_menu.mp3");
 
-    // ========== RÉFÉRENCES AUDIO/VISUELLES ==========
-    let audio_select = new Audio("./home/apps/menu/components/click.mp3");
-    let audio_back = new Audio("./home/apps/menu/components/click.mp3");
-    let audio_open = new Audio("./home/apps/menu/components/opening_menu.mp3");
-
-    // ========== VARIABLES UTILITY ==========
-    let fps = 0;
-    let speed_regulator = 1;
+    // ─── UTILS LAYOUT ────────────────────────────────────────────────────────
+    let socket         = null;
+    let fps            = 0;
     let frame_delta_ms = 16;
-    let first_run = true;
-    let gl_render_state_initialized = false;
-    let canvas_width = 0;
-    let canvas_height = 0;
-    const UI_SCALE = 0.62;
-    const MENU_ROTATE_180 = true;
-    const TEXT_SCALE = 1.25;
-    const INDEX_HOVER_RADIUS = 40;
-    const HAND_HOVER_RADIUS = 70;
-    const INDEX_CURSOR_RADIUS = 10;
-    const BUTTON_HITBOX_PADDING = 18;
-    const CELL_HITBOX_PADDING = 20;
+    let first_run      = true;
+    let canvas_width   = 0;
+    let canvas_height  = 0;
 
-    // ========== PRELOAD ==========
+    // Facteur de mise à l'échelle de la projection
+    const UI_SCALE          = 0.62;
+    const MENU_ROTATE_180   = true;
+    const BUTTON_PAD        = 18;
+    const CELL_PAD          = 14;
+    const INDEX_HOVER_RADIUS = 44;
+    const CURSOR_R           = 8;
+
+    // ─── PALETTE ─────────────────────────────────────────────────────────────
+    const C = {
+        bg_deep:   [8,  13, 24],
+        bg_mid:    [13, 22, 40],
+        bg_panel:  [10, 18, 34],
+        bg_hover:  [20, 36, 72],
+        border:    [26, 48, 96],
+        border_hi: [48, 96, 160],
+        accent:    [58, 143, 255],
+        accent2:   [100, 180, 255],
+        text_hi:   [216, 234, 255],
+        text_mid:  [112, 148, 192],
+        text_dim:  [48,  80, 128],
+        green_i:   [60, 200, 110],
+        // Couleurs icônes
+        pink:      [200, 60, 120],  pink_bg:  [60, 10, 38],
+        blue_i:    [80, 150, 240],  blue_bg:  [12, 35, 90],
+        green_fg:  [60, 200, 110],  green_bg: [10, 55, 28],
+        amber_i:   [240, 165, 50],  amber_bg: [72, 46, 6],
+        teal_i:    [50, 210, 190],  teal_bg:  [6,  62, 70],
+    };
+
+    // Map couleur par nom d'app
+    const APP_COLOR_KEYS = {
+        rabbits_game:               { fg: C.pink,    bg: C.pink_bg  },
+        affine:                     { fg: C.blue_i,  bg: C.blue_bg  },
+        triangles_remarkable_lines: { fg: C.green_fg,bg: C.green_bg },
+        triangles_full_lesson:      { fg: C.amber_i, bg: C.amber_bg },
+        triangles_short_lesson:     { fg: C.teal_i,  bg: C.teal_bg  },
+    };
+
+    // ─── POLICE ──────────────────────────────────────────────────────────────
+    let font_display = null;
+    let font_body    = null;
+    const FONT_PATH  = "/gosai/pool/core/server/assets/FallingSky-JKwK.otf";
+
+    // ─── PRELOAD ─────────────────────────────────────────────────────────────
     sketch.preload = () => {
-        font = loadFont("/gosai/pool/core/server/assets/FallingSky-JKwK.otf");
-        
-        // Charger config
+        font_display = loadFont(FONT_PATH, () => {}, () => {
+            console.warn("[menu] Font not loaded, using system fallback");
+        });
+        font_body = font_display;
+
         let url = getURLPath();
         url.splice(-1);
         url = url.join("/");
         loadJSON("/" + url + "/platform/home/config.json", (data) => {
-            if (data.applications.menu_control) {
+            if (data.applications && data.applications.menu_control) {
                 all_apps = data.applications.menu_control;
             }
             if (data.app_metadata) {
                 app_metadata = data.app_metadata;
                 organizeByCategories();
             }
-
         });
     };
 
-    // ========== SETUP ==========
+    // ─── SETUP ───────────────────────────────────────────────────────────────
     sketch.set = (width, height, sock) => {
-        canvas_width = width;
+        canvas_width  = width;
         canvas_height = height;
+        socket        = sock;
 
-        // Favor stable opaque rendering under projective warping.
-        if (typeof sketch.setAttributes === "function") {
-            sketch.setAttributes("alpha", false);
-            sketch.setAttributes("antialias", true);
-            sketch.setAttributes("premultipliedAlpha", true);
-        }
-
+        // *** P2D au lieu de WEBGL → supprime tous les problèmes de depth/alpha ***
         sketch.selfCanvas = sketch
-            .createCanvas(width, height, sketch.WEBGL)
+            .createCanvas(width, height)   // P2D par défaut
             .position(0, 0);
 
-        centerCanvas();
-
         sketch.activated = true;
-        socket = sock;
 
-        // Recevoir position des mains
         socket.on(sketch.name, (data) => {
             hands_position = (data && data.hands_landmarks) ? data.hands_landmarks : [];
             if (hands_position.length > 0) {
@@ -136,541 +156,646 @@ export const menu = new p5((sketch) => {
             }
         });
 
-        // Emit custom events
-        sketch.emit = (name, data) => {
-            socket.emit(name, data);
-        };
+        sketch.emit = (name, data) => socket.emit(name, data);
 
-        // Suivre les apps lancées
-        socket.on("core-app_manager-started_applications", async (data) => {
-            started_apps = data.applications.map(app => app.name);
-            if (started_apps.includes(selected_app_name)) {
+        socket.on("core-app_manager-started_applications", (data) => {
+            started_apps = data.applications.map(a => a.name);
+            if (selected_app_name && started_apps.includes(selected_app_name)) {
                 current_screen = SCREENS.PLAYING;
-                setupPauseGestureDetection();
+                pause_gesture_frames = 0;
             }
         });
     };
 
-    sketch.resume = () => {};
-    sketch.pause = () => {};
-    sketch.update = () => {};
+    sketch.resume      = () => {};
+    sketch.pause       = () => {};
+    sketch.update      = () => {};
     sketch.windowResized = () => {
-        centerCanvas();
+        if (sketch.selfCanvas) sketch.selfCanvas.position(0, 0);
     };
 
-    // ========== MAIN DRAW LOOP ==========
+    // ─── BOUCLE PRINCIPALE ───────────────────────────────────────────────────
     sketch.show = () => {
         if (first_run) {
             first_run = false;
             last_interaction_time = millis();
         }
 
-        fps = Math.round(frameRate());
-        speed_regulator = 50 / fps;
+        fps            = Math.round(frameRate());
         frame_delta_ms = sketch.deltaTime || (1000 / Math.max(fps, 1));
 
-        // Start from an opaque frame to avoid transparent resolve artifacts.
-        sketch.background(0, 0, 0);
-        sketch.fill(255);
-        sketch.stroke(255);
-        sketch.textFont(font);
+        // Fond opaque (P2D : simple, pas de tricks WEBGL)
+        setFill(C.bg_deep);
+        sketch.noStroke();
+        sketch.rect(0, 0, canvas_width, canvas_height);
 
-        // Render menu as strict 2D UI to avoid depth artifacts on flat color areas.
-        const canUseDepthHint =
-            typeof sketch.hint === "function" &&
-            typeof sketch.DISABLE_DEPTH_TEST !== "undefined" &&
-            typeof sketch.ENABLE_DEPTH_TEST !== "undefined";
-
-        if (canUseDepthHint) {
-            sketch.hint(sketch.DISABLE_DEPTH_TEST);
-        }
-
-        const gl = sketch.drawingContext;
-        if (!gl_render_state_initialized && gl) {
-            // Disable hardware dithering to avoid visible hatch pattern on flat areas.
-            if (typeof gl.disable === "function" && typeof gl.DITHER !== "undefined") {
-                gl.disable(gl.DITHER);
-            }
-            gl_render_state_initialized = true;
-        }
-        const canToggleDepthMask = gl && typeof gl.depthMask === "function";
-        if (canToggleDepthMask) {
-            gl.depthMask(false);
-        }
-
-        // Mise à jour du timing
         updateTimings();
 
-        // Gestion des gestes de pause (si app en cours)
         if (current_screen === SCREENS.PLAYING) {
             checkPauseGesture();
         }
 
-        // Déterminer l'écran à afficher
         determineScreen();
 
-        // Afficher l'écran avec transition douce
         sketch.push();
+        sketch.translate(canvas_width / 2, canvas_height / 2);
         sketch.scale(UI_SCALE);
-        if (MENU_ROTATE_180) {
-            sketch.rotate(PI);
-        }
+        if (MENU_ROTATE_180) sketch.rotate(PI);
+
         drawScreenWithTransition();
-        drawIndexCursor();
+        drawCursor();
         sketch.pop();
-
-        if (canToggleDepthMask) {
-            gl.depthMask(true);
-        }
-        if (canUseDepthHint) {
-            sketch.hint(sketch.ENABLE_DEPTH_TEST);
-        }
-
-        // Debug info
-        drawDebugInfo();
     };
 
-    function setUiTextSize(size) {
-        sketch.textSize(Math.round(size * TEXT_SCALE));
+    // ─── HELPERS COULEUR & TEXTE ─────────────────────────────────────────────
+    function setFill(c, alpha) {
+        if (alpha !== undefined) sketch.fill(c[0], c[1], c[2], alpha);
+        else sketch.fill(c[0], c[1], c[2]);
     }
 
-    function drawSolidBackground(r, g, b) {
+    function setStroke(c, alpha) {
+        if (alpha !== undefined) sketch.stroke(c[0], c[1], c[2], alpha);
+        else sketch.stroke(c[0], c[1], c[2]);
+    }
+
+    function useDisplayFont(size) {
+        if (font_display) sketch.textFont(font_display);
+        sketch.textSize(size);
+    }
+
+    function useBodyFont(size) {
+        if (font_body) sketch.textFont(font_body);
+        sketch.textSize(size);
+    }
+
+    function drawWrappedText(txt, x, y, maxW, leading) {
+        const words = (txt || "").split(/\s+/);
+        let line = "", cy = y;
+        for (const w of words) {
+            const cand = line ? `${line} ${w}` : w;
+            if (sketch.textWidth(cand) > maxW && line) {
+                sketch.text(line, x, cy);
+                line = w;
+                cy += leading;
+            } else {
+                line = cand;
+            }
+        }
+        if (line) sketch.text(line, x, cy);
+    }
+
+    function solidBg(r, g, b) {
         sketch.push();
         sketch.noStroke();
-        sketch.fill(r, g, b, 255);
-        // Slight overscan prevents 1px edge artifacts after projection transform.
-        sketch.rect(-width/2 - 6, -height/2 - 6, width + 12, height + 12);
+        sketch.fill(r, g, b);
+        const W = canvas_width  / UI_SCALE + 20;
+        const H = canvas_height / UI_SCALE + 20;
+        sketch.rectMode(CENTER);
+        sketch.rect(0, 0, W, H);
         sketch.pop();
     }
 
-    function drawWrappedText(text, x, y, maxWidth, lineHeight) {
-        const words = (text || "").split(/\s+/);
-        let line = "";
-        let cursorY = y;
-
-        for (const word of words) {
-            const candidate = line ? `${line} ${word}` : word;
-            if (sketch.textWidth(candidate) > maxWidth && line) {
-                sketch.text(line, x, cursorY);
-                line = word;
-                cursorY += lineHeight;
-            } else {
-                line = candidate;
-            }
-        }
-
-        if (line) {
-            sketch.text(line, x, cursorY);
-        }
+    function drawBgGrid() {
+        sketch.push();
+        setStroke(C.border, 28);
+        sketch.strokeWeight(1);
+        const W = canvas_width  / UI_SCALE;
+        const H = canvas_height / UI_SCALE;
+        const step = 40;
+        for (let x = -W/2; x < W/2; x += step) sketch.line(x, -H/2, x, H/2);
+        for (let y = -H/2; y < H/2; y += step) sketch.line(-W/2, y, W/2, y);
+        sketch.pop();
     }
 
-    // ========== GESTION D'ÉTAT DES ÉCRANS ==========
-    function determineScreen() {
-        const now = millis();
-        const timeSinceInteraction = now - last_interaction_time;
+    function drawCorner(cx, cy, sz, top, bottom, left, right) {
+        sketch.push();
+        setStroke(C.border);
+        sketch.strokeWeight(1.5);
+        sketch.noFill();
+        if (top   && left)  { sketch.line(cx, cy, cx+sz, cy); sketch.line(cx, cy, cx, cy+sz); }
+        if (top   && right) { sketch.line(cx, cy, cx-sz, cy); sketch.line(cx, cy, cx, cy+sz); }
+        if (bottom && left) { sketch.line(cx, cy, cx+sz, cy); sketch.line(cx, cy, cx, cy-sz); }
+        if (bottom && right){ sketch.line(cx, cy, cx-sz, cy); sketch.line(cx, cy, cx, cy-sz); }
+        sketch.pop();
+    }
 
-        // Si en train de jouer et inactivité > 1 min => IDLE
-        if (current_screen === SCREENS.PLAYING && timeSinceInteraction > idle_timeout) {
+    // ─── GESTION D'ÉTAT ──────────────────────────────────────────────────────
+    function determineScreen() {
+        const now  = millis();
+        const idle = now - last_interaction_time;
+
+        if (current_screen === SCREENS.PLAYING && idle > IDLE_TIMEOUT) {
             setScreenImmediate(SCREENS.IDLE);
             idle_countdown_start = now;
         }
-
-        // Si dans SELECT et inactivité > 2 min => START
-        if (current_screen === SCREENS.SELECT && timeSinceInteraction > select_timeout) {
+        if (current_screen === SCREENS.SELECT && idle > SELECT_TIMEOUT) {
             goToScreen(SCREENS.START);
-            select_inactivity_start = 0; // Reset pour la prochaine visite
         }
-
-        // Si dans IDLE et countdown écoulé => START
         if (current_screen === SCREENS.IDLE) {
-            const timeInIdle = now - idle_countdown_start;
-            if (timeInIdle > idle_countdown_max) {
+            if (now - idle_countdown_start > IDLE_COUNTDOWN_MAX) {
                 stopSelectedApp();
                 setScreenImmediate(SCREENS.START);
                 last_interaction_time = now;
             }
         }
-
-        // Si retour du SELECT après description => revenir à SELECT
-        // (géré dans les fonctions d'interaction)
     }
 
-    function goToScreen(screenName) {
-        if (current_screen !== screenName) {
-            next_screen = screenName;
-            screen_transition_progress = 0;
-        }
+    function goToScreen(s) {
+        if (current_screen !== s) { next_screen = s; screen_transition_progress = 0; }
     }
 
-    function setScreenImmediate(screenName) {
-        current_screen = screenName;
-        next_screen = null;
-        screen_transition_progress = 0;
+    function setScreenImmediate(s) {
+        current_screen = s; next_screen = null; screen_transition_progress = 0;
     }
 
     function stopSelectedApp() {
-        if (!selected_app_name) return;
-        if (!started_apps.includes(selected_app_name)) return;
-
-        sketch.emit("core-app_manager-stop_application", {
-            application_name: selected_app_name,
-        });
-        started_apps = started_apps.filter((name) => name !== selected_app_name);
+        if (!selected_app_name || !started_apps.includes(selected_app_name)) return;
+        sketch.emit("core-app_manager-stop_application", { application_name: selected_app_name });
+        started_apps = started_apps.filter(n => n !== selected_app_name);
     }
 
     function drawScreenWithTransition() {
-        // Pas de transition pour l'instant, affichage direct
-        if (next_screen && screen_transition_progress < 100) {
-            screen_transition_progress += (frame_delta_ms / screen_transition_duration) * 100;
+        if (next_screen) {
+            screen_transition_progress += (frame_delta_ms / SCREEN_TRANSITION_DURATION) * 100;
+            if (screen_transition_progress >= 100) {
+                current_screen = next_screen;
+                next_screen = null;
+                screen_transition_progress = 0;
+            }
         }
-
-        if (screen_transition_progress >= 100 && next_screen) {
-            current_screen = next_screen;
-            next_screen = null;
-            screen_transition_progress = 0;
-        }
-
-        // Appeler la fonction de rendu appropriée
         switch (current_screen) {
-            case SCREENS.START:
-                drawStartScreen();
-                break;
-            case SCREENS.SELECT:
-                drawSelectScreen();
-                break;
-            case SCREENS.DESCRIPTION:
-                drawDescriptionScreen();
-                break;
-            case SCREENS.PLAYING:
-                // Rien à afficher, app joue
-                break;
-            case SCREENS.PAUSE:
-                drawPauseMenu();
-                break;
-            case SCREENS.IDLE:
-                drawIdleScreen();
-                break;
+            case SCREENS.START:       drawStartScreen(); break;
+            case SCREENS.SELECT:      drawSelectScreen(); break;
+            case SCREENS.DESCRIPTION: drawDescriptionScreen(); break;
+            case SCREENS.PLAYING:     break;
+            case SCREENS.PAUSE:       drawPauseMenu(); break;
+            case SCREENS.IDLE:        drawIdleScreen(); break;
         }
     }
 
-    // ========== ÉCRAN 1: START ==========
+    // ─── ÉCRAN 1 : START ─────────────────────────────────────────────────────
     function drawStartScreen() {
-        drawSolidBackground(20, 30, 50);
+        solidBg(...C.bg_deep);
+        drawBgGrid();
 
-        // Titre "Interactive Pool"
+        const W = canvas_width  / UI_SCALE;
+        const H = canvas_height / UI_SCALE;
+        const margin = 28;
+        drawCorner(-W/2+margin, -H/2+margin, 28, true,  false, true,  false);
+        drawCorner( W/2-margin, -H/2+margin, 28, true,  false, false, true);
+        drawCorner(-W/2+margin,  H/2-margin, 28, false, true,  true,  false);
+        drawCorner( W/2-margin,  H/2-margin, 28, false, true,  false, true);
+
         sketch.push();
-        sketch.fill(255);
+        useBodyFont(13);
         sketch.textAlign(CENTER, CENTER);
-        setUiTextSize(80);
-        sketch.text("Interactive Pool", 0, -100);
+        setFill(C.text_dim);
+        sketch.text("DVIC — IFT", 0, -160);
         sketch.pop();
 
-        // Bouton START
-        drawButton(0, 100, 360, 130, "START", () => {
+        sketch.push();
+        useDisplayFont(76);
+        sketch.textAlign(CENTER, CENTER);
+        setFill(C.text_hi);
+        sketch.text("INTERACTIVE", 0, -90);
+        setFill(C.accent);
+        sketch.text("POOL", 0, -2);
+        sketch.pop();
+
+        sketch.push();
+        useBodyFont(13);
+        sketch.textAlign(CENTER, CENTER);
+        setFill(C.text_dim);
+        sketch.text("PLATEFORME TANGIBLE AUGMENTÉE", 0, 56);
+        sketch.pop();
+
+        drawButton(0, 140, 300, 68, "DÉMARRER", () => {
             goToScreen(SCREENS.SELECT);
             select_inactivity_start = millis();
-            last_interaction_time = millis();
+            last_interaction_time   = millis();
             audio_open.play();
-        }, "btn_start");
+        }, "btn_start", true);
 
-        // Instructions
         sketch.push();
-        sketch.fill(150);
-        sketch.textAlign(CENTER);
-        setUiTextSize(24);
-        sketch.text("Passez votre main au-dessus du bouton START pour continuer", 0, height/2 - 50);
+        useBodyFont(12);
+        sketch.textAlign(CENTER, CENTER);
+        setFill(C.text_dim);
+        sketch.text("Maintenez votre main au-dessus du bouton", 0, H/2 - 48);
         sketch.pop();
     }
 
-    // ========== ÉCRAN 2: SELECT (Catégories + Grille) ==========
+    // ─── ÉCRAN 2 : SÉLECTION ─────────────────────────────────────────────────
     function drawSelectScreen() {
-        drawSolidBackground(30, 40, 60);
-
-        // Bannière catégories en haut
+        solidBg(...C.bg_deep);
+        drawBgGrid();
         drawCategoryBanner();
-
-        // Grille 2x2 d'apps
         drawAppGrid();
 
-        // Info inactivité
-        const timeSinceInteraction = millis() - select_inactivity_start;
-        const timeRemaining = max(0, select_timeout - timeSinceInteraction);
-        if (timeRemaining < 30000) { // Afficher si < 30s
+        const elapsed   = millis() - select_inactivity_start;
+        const remaining = Math.max(0, SELECT_TIMEOUT - elapsed);
+        if (remaining < 30000) {
             sketch.push();
-            sketch.fill(255, 100, 100);
-            sketch.textAlign(CENTER);
-            setUiTextSize(22);
-            sketch.text(`Retour à l'accueil dans ${Math.ceil(timeRemaining / 1000)}s`, 0, height/2 - 20);
+            useBodyFont(13);
+            sketch.textAlign(CENTER, CENTER);
+            setFill(C.accent);
+            sketch.text(`Retour à l'accueil dans ${Math.ceil(remaining/1000)}s`,
+                        0, canvas_height/UI_SCALE/2 - 22);
             sketch.pop();
         }
     }
 
     function drawCategoryBanner() {
-        const banner_height = 130;
-        const banner_y = -height/2 + banner_height/2;
+        const W = canvas_width  / UI_SCALE;
+        const H = canvas_height / UI_SCALE;
+        const bar_h = 80;
+        const bar_y = -H/2;
 
         sketch.push();
-        sketch.fill(50, 70, 100);
-        sketch.rect(-width/2, banner_y - banner_height/2, width, banner_height);
+        setFill(C.bg_panel);
+        sketch.noStroke();
+        sketch.rectMode(CORNER);
+        sketch.rect(-W/2, bar_y, W, bar_h);
+        setStroke(C.border);
+        sketch.strokeWeight(1);
+        sketch.line(-W/2, bar_y + bar_h, W/2, bar_y + bar_h);
         sketch.pop();
 
-        // Titre catégorie
-        const current_cat = category_list[current_category_idx] || "Tous";
-        sketch.push();
-        sketch.fill(200, 220, 255);
-        sketch.textAlign(CENTER);
-        setUiTextSize(34);
-        sketch.text(`Catégorie: ${current_cat}`, 0, banner_y - 20);
-        sketch.pop();
+        const cat_cy     = bar_y + bar_h / 2;
+        const btn_sz     = 48;
+        const btn_margin = 24;
 
-        // Boutons navigation catégories (gauche/droite)
-        const btn_size = 90;
-        const left_btn_x = -width/2 + 90;
-        const right_btn_x = width/2 - 90;
-
-        drawButton(left_btn_x, banner_y, btn_size, btn_size, "◀", () => {
-            current_category_idx = max(0, current_category_idx - 1);
+        drawButton(-W/2 + btn_margin + btn_sz/2, cat_cy, btn_sz, btn_sz, "◀", () => {
+            current_category_idx = Math.max(0, current_category_idx - 1);
+            last_interaction_time = millis();
             audio_select.play();
         }, "btn_cat_left");
 
-        drawButton(right_btn_x, banner_y, btn_size, btn_size, "▶", () => {
-            current_category_idx = min(category_list.length - 1, current_category_idx + 1);
+        drawButton(W/2 - btn_margin - btn_sz/2, cat_cy, btn_sz, btn_sz, "▶", () => {
+            current_category_idx = Math.min(category_list.length - 1, current_category_idx + 1);
+            last_interaction_time = millis();
             audio_select.play();
         }, "btn_cat_right");
+
+        const current_cat = category_list[current_category_idx] || "Tous";
+        sketch.push();
+        useDisplayFont(22);
+        sketch.textAlign(CENTER, CENTER);
+        setFill(C.text_mid);
+        sketch.text(current_cat.toUpperCase(), 0, cat_cy);
+        sketch.pop();
     }
 
     function drawAppGrid() {
-        const grid_start_y = -height/2 + 150;
-        const grid_margin = 40;
-        const available_width = width - (grid_margin * 2);
-        const available_height = height - 250;
-
-        const cell_width = available_width / grid_cols;
-        const cell_height = available_height / grid_rows;
+        const W      = canvas_width  / UI_SCALE;
+        const H      = canvas_height / UI_SCALE;
+        const bar_h  = 80;
+        const grid_y = -H/2 + bar_h;
+        const grid_h = H - bar_h;
+        const cell_w = W / GRID_COLS;
+        const cell_h = grid_h / GRID_ROWS;
 
         const current_cat = category_list[current_category_idx] || "Tous";
-        const apps_in_category = categories[current_cat] || [];
+        const apps        = categories[current_cat] || [];
 
-        // Afficher jusqu'à 4 apps (2x2)
-        for (let row = 0; row < grid_rows; row++) {
-            for (let col = 0; col < grid_cols; col++) {
-                const idx = row * grid_cols + col;
-                if (idx >= apps_in_category.length) break;
+        for (let row = 0; row < GRID_ROWS; row++) {
+            for (let col = 0; col < GRID_COLS; col++) {
+                const idx = row * GRID_COLS + col;
 
-                const app_name = apps_in_category[idx];
-                const app_meta = app_metadata[app_name] || { name: app_name };
+                if (idx >= apps.length) {
+                    sketch.push();
+                    setFill(C.bg_deep);
+                    setStroke(C.border, 30);
+                    sketch.strokeWeight(1);
+                    sketch.rectMode(CORNER);
+                    sketch.rect(-W/2 + col*cell_w, grid_y + row*cell_h, cell_w, cell_h);
+                    sketch.pop();
+                    continue;
+                }
+
+                const app_name   = apps[idx];
+                const meta       = app_metadata[app_name] || { name: app_name };
                 const is_running = started_apps.includes(app_name);
+                const cx         = -W/2 + col*cell_w + cell_w/2;
+                const cy         = grid_y + row*cell_h + cell_h/2;
+                const cell_key   = `cell_${idx}`;
 
-                // Position de la cellule
-                const cell_x = -width/2 + grid_margin + col * cell_width + cell_width/2;
-                const cell_y = grid_start_y + row * cell_height + cell_height/2;
+                const is_hovered = checkRectHover(
+                    -W/2 + col*cell_w + CELL_PAD,
+                    grid_y + row*cell_h + CELL_PAD,
+                    cell_w - CELL_PAD*2,
+                    cell_h - CELL_PAD*2
+                );
 
-                // Détection du survol
-                const is_hovering = checkPointHover(cell_x - cell_width/2, cell_y - cell_height/2, 
-                                                   cell_width + CELL_HITBOX_PADDING * 2,
-                                                   cell_height + CELL_HITBOX_PADDING * 2);
-
-                // Accumuler le temps de hovering
-                const cell_key = `cell_${idx}`;
-                if (is_hovering) {
-                    if (!cell_hover_times[cell_key]) cell_hover_times[cell_key] = 0;
-                    cell_hover_times[cell_key] += frame_delta_ms;
-                    hovered_cell_idx = idx;
+                if (is_hovered) {
+                    cell_hover_times[cell_key] = (cell_hover_times[cell_key] || 0) + frame_delta_ms;
+                    last_interaction_time = millis();
                 } else {
                     cell_hover_times[cell_key] = 0;
                 }
 
-                // Rendre la cellule
-                const hover_time = cell_hover_times[cell_key] || 0;
-                drawAppCell(cell_x, cell_y, cell_width, cell_height, app_meta, 
-                           is_running, is_hovering, hover_time, idx, app_name);
+                const hover_t = cell_hover_times[cell_key] || 0;
+                drawAppCell(cx, cy, cell_w, cell_h, app_name, meta, is_running, is_hovered, hover_t, idx);
             }
         }
+
+        // Séparateurs
+        sketch.push();
+        setStroke(C.border, 60);
+        sketch.strokeWeight(1);
+        sketch.line(0, grid_y, 0, H/2);
+        sketch.line(-W/2, grid_y + grid_h/2, W/2, grid_y + grid_h/2);
+        sketch.pop();
     }
 
-    function drawAppCell(x, y, w, h, app_meta, is_running, is_hovering, hover_time, idx, app_name) {
-        const padding = 10;
-        const inner_w = w - padding * 2;
-        const inner_h = h - padding * 2;
-        const inner_x = x - inner_w/2;
-        const inner_y = y - inner_h/2;
+    function drawAppCell(cx, cy, w, h, app_name, meta, is_running, is_hovered, hover_t, idx) {
+        const pad = 10;
 
-        // Fond de la cellule
         sketch.push();
-        if (is_hovering) {
-            sketch.fill(70, 100, 140);
-        } else {
-            sketch.fill(50, 70, 100);
-        }
-        if (is_running) {
-            sketch.stroke(100, 200, 100);
-        } else {
-            sketch.stroke(150, 150, 150);
-        }
-        sketch.strokeWeight(2);
+        if (is_hovered)      setFill(C.bg_hover);
+        else                 setFill(C.bg_mid);
+
+        if (is_running)      { setStroke(C.green_i);  sketch.strokeWeight(1.5); }
+        else if (is_hovered) { setStroke(C.border_hi); sketch.strokeWeight(1.5); }
+        else                 { setStroke(C.border);    sketch.strokeWeight(1); }
+
         sketch.rectMode(CORNER);
-        sketch.rect(inner_x, inner_y, inner_w, inner_h, 10);
+        sketch.rect(cx-w/2+pad, cy-h/2+pad, w-pad*2, h-pad*2, 6);
         sketch.pop();
 
-        // Icône et texte
+        const ck   = APP_COLOR_KEYS[app_name] || { fg: C.accent, bg: C.bg_panel };
+        const fg   = ck.fg, bg_ic = ck.bg;
+        const label = (meta.name || app_name)
+            .split(/\s+/).map(w => (w[0]||"").toUpperCase()).join("").slice(0,2);
+        const icon_r = 32;
+
         sketch.push();
-        sketch.fill(255);
+        sketch.fill(bg_ic[0], bg_ic[1], bg_ic[2]);
+        sketch.stroke(fg[0], fg[1], fg[2], 100);
+        sketch.strokeWeight(1);
+        sketch.rectMode(CENTER);
+        sketch.rect(cx, cy-26, icon_r*2, icon_r*2, 8);
+        useDisplayFont(26);
         sketch.textAlign(CENTER, CENTER);
-        const icon_label = (app_meta.name || app_name)
-            .split(" ")
-            .map((w) => w[0] || "")
-            .join("")
-            .slice(0, 2)
-            .toUpperCase();
-        setUiTextSize(34);
-        sketch.text(icon_label || "AP", x, y - 18);
-        setUiTextSize(22);
-        sketch.text(app_meta.name || app_name, x, y + 28);
-        if (is_running) {
-            sketch.fill(100, 200, 100);
-            setUiTextSize(16);
-            sketch.text("(Actif)", x, y + 52);
-        }
+        sketch.fill(fg[0], fg[1], fg[2]);
+        sketch.text(label, cx, cy-26);
         sketch.pop();
-
-        // Camembert si hovering
-        if (is_hovering && hover_time > 0) {
-            drawPieChart(x, y, 40, hover_time, PIE_CHART_DURATION);
-        }
-
-        // Sélection complète au camembert complet
-        if (hover_time >= PIE_CHART_DURATION) {
-            selectApp(app_name);
-            cell_hover_times[`cell_${idx}`] = 0; // Reset
-        }
-    }
-
-    function drawPieChart(x, y, radius, time, duration) {
-        const progress = min(1, time / duration);
-        const angle = progress * TWO_PI - PI/2; // Commence de haut
 
         sketch.push();
-        sketch.fill(100, 200, 100, 150);
-        sketch.stroke(100, 255, 100);
-        sketch.strokeWeight(2);
-        sketch.arc(x, y, radius * 2, radius * 2, -PI/2, angle, PIE);
+        useDisplayFont(16);
+        sketch.textAlign(CENTER, CENTER);
+        setFill(C.text_hi);
+        const max_chars = 22;
+        const name_str  = meta.name || app_name;
+        sketch.text(name_str.length > max_chars ? name_str.slice(0, max_chars-1)+"…" : name_str,
+                    cx, cy+20);
         sketch.pop();
+
+        sketch.push();
+        useBodyFont(11);
+        sketch.textAlign(CENTER, CENTER);
+        setFill(C.text_dim);
+        let sub = (meta.category || "").toUpperCase();
+        if (is_running) {
+            sketch.fill(C.green_i[0], C.green_i[1], C.green_i[2]);
+            sub += sub ? " · ACTIF" : "ACTIF";
+        }
+        sketch.text(sub, cx, cy+42);
+        sketch.pop();
+
+        if (is_running) {
+            sketch.push();
+            sketch.noStroke();
+            sketch.fill(C.green_i[0], C.green_i[1], C.green_i[2]);
+            sketch.circle(cx-w/2+pad+12, cy-h/2+pad+12, 8);
+            sketch.pop();
+        }
+
+        if (is_hovered && hover_t > 0) {
+            drawPie(cx+w/2-pad-18, cy-h/2+pad+18, 16, hover_t, PIE_DURATION);
+        }
+
+        if (hover_t >= PIE_DURATION) {
+            cell_hover_times[`cell_${idx}`] = 0;
+            selectApp(app_name);
+        }
     }
 
-    // ========== ÉCRAN 3: DESCRIPTION ==========
+    // ─── ÉCRAN 3 : DESCRIPTION ───────────────────────────────────────────────
     function drawDescriptionScreen() {
-        drawSolidBackground(30, 40, 60);
+        solidBg(...C.bg_deep);
+        drawBgGrid();
 
         if (!selected_app_name) return;
 
-        const app_meta = app_metadata[selected_app_name] || {};
-        const margin = 40;
-        const left_section_width = width/2 - margin * 2;
-        const left_x = -width/4 - margin;
+        const meta = app_metadata[selected_app_name] || {};
+        const W    = canvas_width  / UI_SCALE;
+        const H    = canvas_height / UI_SCALE;
 
-        // Left content panel for cleaner typography and readability.
+        // Bandeau titre
+        const hdr_h = 70;
+        const hdr_y = -H/2;
+
         sketch.push();
+        setFill(C.bg_panel);
         sketch.noStroke();
-        sketch.fill(23, 31, 47, 255);
-        sketch.rect(left_x - 22, -height/2 + margin - 18, left_section_width + 44, 312, 12);
+        sketch.rectMode(CORNER);
+        sketch.rect(-W/2, hdr_y, W, hdr_h);
+        setStroke(C.border);
+        sketch.strokeWeight(1);
+        sketch.line(-W/2, hdr_y+hdr_h, W/2, hdr_y+hdr_h);
         sketch.pop();
 
-        // Section gauche: Titre + Description
-        sketch.push();
-        sketch.fill(255);
-        sketch.textAlign(LEFT, TOP);
-        sketch.textStyle(BOLD);
-        setUiTextSize(36);
-        sketch.text(app_meta.name || selected_app_name, left_x, -height/2 + margin);
-
-        sketch.textStyle(NORMAL);
-        setUiTextSize(18);
-        sketch.textLeading(34);
-        sketch.fill(200);
-        const desc = app_meta.description || "Aucune description";
-        drawWrappedText(desc, left_x, -height/2 + margin + 98, left_section_width - 10, 34);
-        sketch.pop();
-
-        // Section droite: Image placeholder
-        sketch.push();
-        sketch.fill(100, 130, 170);
-        sketch.rect(width/4 - 100, -height/2 + margin, 200, 200, 10);
-        sketch.fill(255);
-        sketch.textAlign(CENTER, CENTER);
-        setUiTextSize(48);
-        sketch.text(app_meta.icon || "📦", width/4, -height/2 + margin + 100);
-        sketch.pop();
-
-        // Boutons en bas
-        const btn_y = height/2 - 138;
-        const btn_back_x = -width/4;
-        const btn_play_x = width/4;
-
-        drawButton(btn_back_x, btn_y + 48, 340, 120, "◄ Retour", () => {
+        // Bouton retour
+        drawButton(-W/2+52, hdr_y+hdr_h/2, 52, 42, "◄", () => {
             goToScreen(SCREENS.SELECT);
             audio_back.play();
         }, "btn_desc_back");
 
-        // Big square PLAY button to make launch action obvious.
-        drawButton(btn_play_x, btn_y, 240, 240, "JOUER", () => {
-            audio_select.play();
-            sketch.emit("core-app_manager-start_application", { 
-                application_name: selected_app_name 
-            });
-            current_screen = SCREENS.PLAYING;
-            setupPauseGestureDetection();
-        }, "btn_desc_play");
-    }
-
-    // ========== ÉCRAN 4: MENU PAUSE ==========
-    function drawPauseMenu() {
-        // Keep pause menu visually on top with a fully opaque backdrop.
-        sketch.push();
-        sketch.noStroke();
-        sketch.fill(8, 12, 20, 255);
-        sketch.rect(-width/2, -height/2, width, height);
-        sketch.pop();
-
-        // Panneau du menu pause
-        const panel_width = 800;
-        const panel_height = 700;
-        sketch.push();
-        sketch.noStroke();
-        sketch.fill(12, 20, 34, 255);
-        sketch.rect(-panel_width/2 - 12, -panel_height/2 - 12, panel_width + 24, panel_height + 24, 18);
-
-        sketch.fill(30, 40, 60);
-        sketch.stroke(200, 220, 255);
-        sketch.strokeWeight(4);
-        sketch.rect(-panel_width/2, -panel_height/2, panel_width, panel_height, 15);
-        sketch.pop();
-
         // Titre
         sketch.push();
-        sketch.fill(200, 220, 255);
-        sketch.textAlign(CENTER);
-        setUiTextSize(48);
-        sketch.text("== PAUSE ==", 0, -230);
+        useDisplayFont(26);
+        sketch.textAlign(LEFT, CENTER);
+        setFill(C.text_hi);
+        sketch.text((meta.name || selected_app_name).toUpperCase(), -W/2+102, hdr_y+hdr_h/2);
         sketch.pop();
 
-        // Boutons
-        drawButton(0, -80, 440, 100, "Reprendre", () => {
+        // Badge catégorie
+        if (meta.category) {
+            sketch.push();
+            setFill(C.bg_mid);
+            setStroke(C.border);
+            sketch.strokeWeight(1);
+            sketch.rectMode(CENTER);
+            sketch.rect(W/2-100, hdr_y+hdr_h/2, 130, 30, 3);
+            useBodyFont(11);
+            sketch.textAlign(CENTER, CENTER);
+            setFill(C.text_mid);
+            sketch.text(meta.category.toUpperCase(), W/2-100, hdr_y+hdr_h/2);
+            sketch.pop();
+        }
+
+        // Corps : gauche | droite
+        const body_y  = hdr_y + hdr_h;
+        const body_h  = H - hdr_h;
+        const left_w  = W * 0.62;
+        const right_w = W - left_w;
+        const left_x  = -W/2;
+        const right_x = left_x + left_w;
+
+        sketch.push();
+        setStroke(C.border);
+        sketch.strokeWeight(1);
+        sketch.line(right_x, body_y, right_x, H/2);
+        sketch.pop();
+
+        // Icône
+        const ck    = APP_COLOR_KEYS[selected_app_name] || { fg: C.accent, bg: C.bg_panel };
+        const fg    = ck.fg, bg_ic = ck.bg;
+        const pad   = 36;
+        const icon_sz = 72;
+        const icon_cx = left_x + pad + icon_sz/2;
+        const icon_cy = body_y + pad + icon_sz/2;
+
+        sketch.push();
+        sketch.fill(bg_ic[0], bg_ic[1], bg_ic[2]);
+        sketch.stroke(fg[0], fg[1], fg[2], 80);
+        sketch.strokeWeight(1);
+        sketch.rectMode(CENTER);
+        sketch.rect(icon_cx, icon_cy, icon_sz, icon_sz, 10);
+        useDisplayFont(30);
+        sketch.textAlign(CENTER, CENTER);
+        sketch.fill(fg[0], fg[1], fg[2]);
+        const label2 = (meta.name || selected_app_name)
+            .split(/\s+/).map(w => (w[0]||"").toUpperCase()).join("").slice(0,2);
+        sketch.text(label2, icon_cx, icon_cy);
+        sketch.pop();
+
+        // Description
+        sketch.push();
+        useBodyFont(15);
+        sketch.textAlign(LEFT, TOP);
+        setFill(C.text_mid);
+        sketch.textLeading(26);
+        drawWrappedText(
+            meta.description || "Aucune description.",
+            left_x + pad,
+            body_y + pad + icon_sz + 24,
+            left_w - pad * 2,
+            26
+        );
+        sketch.pop();
+
+        // Chips de métadonnées
+        const chips   = buildChips(meta, selected_app_name);
+        let chip_x    = left_x + pad;
+        const chip_y  = H/2 - 58;
+        for (const chip of chips) {
+            useBodyFont(11);
+            const cw = sketch.textWidth(chip) + 28;
+            sketch.push();
+            setFill(C.bg_mid);
+            setStroke(C.border);
+            sketch.strokeWeight(1);
+            sketch.rectMode(CORNER);
+            sketch.rect(chip_x, chip_y, cw, 26, 3);
+            sketch.textAlign(LEFT, CENTER);
+            setFill(C.text_mid);
+            sketch.text(chip, chip_x+14, chip_y+13);
+            sketch.pop();
+            chip_x += cw + 10;
+        }
+
+        // Bouton JOUER (panneau droit)
+        const play_cx = right_x + right_w/2;
+        const play_cy = body_y + body_h/2;
+        const play_sz = Math.min(right_w * 0.65, body_h * 0.5);
+
+        drawButton(play_cx, play_cy, play_sz, play_sz, "JOUER", () => {
+            audio_select.play();
+            sketch.emit("core-app_manager-start_application", {
+                application_name: selected_app_name
+            });
+            current_screen = SCREENS.PLAYING;
+            pause_gesture_frames = 0;
+        }, "btn_desc_play", true);
+
+        // Décoration triangle lecture
+        const tri = play_sz * 0.18;
+        sketch.push();
+        setFill(C.accent2, 40);
+        sketch.noStroke();
+        sketch.triangle(
+            play_cx - tri*0.6, play_cy - tri,
+            play_cx - tri*0.6, play_cy + tri,
+            play_cx + tri,     play_cy
+        );
+        sketch.pop();
+    }
+
+    function buildChips(meta, app_name) {
+        const chips = [];
+        if (meta.category)                              chips.push(meta.category.toUpperCase());
+        if (app_name === "triangles_full_lesson")       chips.push("10 MIN");
+        if (app_name === "triangles_short_lesson")      chips.push("5 MIN");
+        if (app_name === "affine")                      chips.push("LIBRE");
+        if (app_name === "rabbits_game")                chips.push("LIBRE");
+        chips.push("2 JOUEURS");
+        return chips;
+    }
+
+    // ─── ÉCRAN 4 : PAUSE ─────────────────────────────────────────────────────
+    function drawPauseMenu() {
+        sketch.push();
+        sketch.noStroke();
+        sketch.fill(2, 5, 10, 230);
+        const W = canvas_width  / UI_SCALE;
+        const H = canvas_height / UI_SCALE;
+        sketch.rectMode(CENTER);
+        sketch.rect(0, 0, W+20, H+20);
+        sketch.pop();
+
+        const pw = 480, ph = 440;
+        sketch.push();
+        setFill(C.bg_panel);
+        setStroke(C.border_hi);
+        sketch.strokeWeight(1.5);
+        sketch.rectMode(CENTER);
+        sketch.rect(0, 0, pw, ph, 8);
+        sketch.pop();
+
+        sketch.push();
+        useDisplayFont(52);
+        sketch.textAlign(CENTER, CENTER);
+        setFill(C.text_hi);
+        sketch.text("PAUSE", 0, -140);
+        sketch.pop();
+
+        sketch.push();
+        useBodyFont(12);
+        sketch.textAlign(CENTER, CENTER);
+        setFill(C.text_dim);
+        sketch.text("APPLICATION EN ATTENTE", 0, -96);
+        sketch.pop();
+
+        sketch.push();
+        setStroke(C.border);
+        sketch.strokeWeight(1);
+        sketch.line(-pw/2+32, -68, pw/2-32, -68);
+        sketch.pop();
+
+        drawButton(0, -18, 360, 58, "▶  REPRENDRE", () => {
             current_screen = SCREENS.PLAYING;
             audio_select.play();
-        }, "btn_pause_resume");
+        }, "btn_pause_resume", true);
 
-        drawButton(0, 60, 440, 100, "Redémarrer", () => {
-            sketch.emit("core-app_manager-stop_application", { 
-                application_name: selected_app_name 
-            });
-            sketch.emit("core-app_manager-start_application", { 
-                application_name: selected_app_name 
-            });
+        drawButton(0, 58, 360, 52, "↺  REDÉMARRER", () => {
+            sketch.emit("core-app_manager-stop_application",  { application_name: selected_app_name });
+            sketch.emit("core-app_manager-start_application", { application_name: selected_app_name });
             current_screen = SCREENS.PLAYING;
             audio_select.play();
         }, "btn_pause_restart");
 
-        drawButton(0, 200, 440, 100, "Menu", () => {
+        drawButton(0, 128, 360, 52, "⌂  MENU PRINCIPAL", () => {
             stopSelectedApp();
             setScreenImmediate(SCREENS.SELECT);
             last_interaction_time = millis();
@@ -678,185 +803,153 @@ export const menu = new p5((sketch) => {
         }, "btn_pause_menu");
     }
 
-    // ========== ÉCRAN 5: IDLE ==========
+    // ─── ÉCRAN 5 : IDLE ──────────────────────────────────────────────────────
     function drawIdleScreen() {
         sketch.push();
         sketch.noStroke();
-        sketch.fill(0, 0, 0, 255);
-        sketch.rect(-width/2, -height/2, width, height);
+        sketch.fill(0, 0, 0, 240);
+        const W = canvas_width  / UI_SCALE;
+        const H = canvas_height / UI_SCALE;
+        sketch.rectMode(CENTER);
+        sketch.rect(0, 0, W+20, H+20);
         sketch.pop();
 
-        // Foreground panel to keep IDLE visually above the game.
-        const panel_width = 900;
-        const panel_height = 620;
+        const pw = 560, ph = 380;
         sketch.push();
-        sketch.fill(30, 40, 60);
-        sketch.stroke(200, 220, 255);
-        sketch.strokeWeight(4);
-        sketch.rect(-panel_width/2, -panel_height/2, panel_width, panel_height, 16);
+        setFill(C.bg_panel);
+        setStroke(C.border_hi);
+        sketch.strokeWeight(1.5);
+        sketch.rectMode(CENTER);
+        sketch.rect(0, 0, pw, ph, 8);
         sketch.pop();
 
-        // Message
         sketch.push();
-        sketch.fill(255);
-        sketch.textAlign(CENTER);
-        setUiTextSize(48);
-        sketch.text("Êtes-vous toujours là ?", 0, -210);
+        useDisplayFont(40);
+        sketch.textAlign(CENTER, CENTER);
+        setFill(C.text_hi);
+        sketch.text("ÊTES-VOUS TOUJOURS LÀ ?", 0, -112);
         sketch.pop();
 
-        // Boutons
-        drawButton(-210, 10, 320, 100, "Continuer", () => {
-            if (selected_app_name && started_apps.includes(selected_app_name)) {
-                setScreenImmediate(SCREENS.PLAYING);
-            } else {
-                setScreenImmediate(SCREENS.START);
-            }
+        const elapsed   = millis() - idle_countdown_start;
+        const remaining = Math.max(0, IDLE_COUNTDOWN_MAX - elapsed);
+        sketch.push();
+        useBodyFont(13);
+        sketch.textAlign(CENTER, CENTER);
+        setFill(C.accent);
+        sketch.text(`Retour à l'accueil dans ${Math.ceil(remaining/1000)}s`, 0, -60);
+        sketch.pop();
+
+        drawButton(-140, 28, 240, 58, "CONTINUER", () => {
+            const target = (selected_app_name && started_apps.includes(selected_app_name))
+                ? SCREENS.PLAYING : SCREENS.START;
+            setScreenImmediate(target);
             last_interaction_time = millis();
             audio_select.play();
-        }, "btn_idle_continue");
+        }, "btn_idle_continue", true);
 
-        drawButton(210, 10, 320, 100, "Retour Menu", () => {
+        drawButton(140, 28, 240, 58, "MENU", () => {
             stopSelectedApp();
             setScreenImmediate(SCREENS.SELECT);
             last_interaction_time = millis();
             audio_back.play();
         }, "btn_idle_menu");
-
-        // Compte à rebours
-        const time_in_idle = millis() - idle_countdown_start;
-        const time_remaining = max(0, idle_countdown_max - time_in_idle);
-        const seconds = Math.ceil(time_remaining / 1000);
-
-        sketch.push();
-        sketch.fill(255, 150, 150);
-        sketch.textAlign(CENTER);
-        setUiTextSize(32);
-        sketch.text(`Retour à l'accueil dans ${seconds}s`, 0, 210);
-        sketch.pop();
     }
 
-    // ========== COMPOSANTS RÉUTILISABLES ==========
-    function drawButton(x, y, w, h, label, callback, button_id) {
-        button_id = button_id || `btn_${x}_${y}`;
-        const is_hovering = checkPointHover(
-            x - w/2 - BUTTON_HITBOX_PADDING,
-            y - h/2 - BUTTON_HITBOX_PADDING,
-            w + BUTTON_HITBOX_PADDING * 2,
-            h + BUTTON_HITBOX_PADDING * 2
+    // ─── COMPOSANT : BOUTON ──────────────────────────────────────────────────
+    function drawButton(x, y, w, h, label, callback, id, primary) {
+        id = id || `btn_${x}_${y}`;
+
+        const is_hovered = checkRectHover(
+            x - w/2 - BUTTON_PAD,
+            y - h/2 - BUTTON_PAD,
+            w + BUTTON_PAD*2,
+            h + BUTTON_PAD*2
         );
 
         sketch.push();
-        if (is_hovering) {
-            sketch.fill(100, 150, 200);
-        } else {
-            sketch.fill(70, 110, 160);
-        }
-        sketch.stroke(200, 220, 255);
-        sketch.strokeWeight(2);
+        if (primary && is_hovered)       setFill(C.bg_hover);
+        else if (primary)                setFill(C.bg_panel);
+        else if (is_hovered)             setFill(C.bg_hover);
+        else                             setFill(C.bg_mid);
+
+        if (primary && is_hovered)       setStroke(C.accent);
+        else if (primary)                setStroke(C.border_hi);
+        else if (is_hovered)             setStroke(C.border_hi);
+        else                             setStroke(C.border);
+
+        sketch.strokeWeight(1.5);
         sketch.rectMode(CENTER);
-        sketch.rect(x, y, w, h, 8);
+        sketch.rect(x, y, w, h, 5);
         sketch.pop();
 
         sketch.push();
-        sketch.fill(255);
+        const fs = Math.max(14, Math.min(24, Math.round(h * 0.30)));
+        useDisplayFont(fs);
         sketch.textAlign(CENTER, CENTER);
-        const buttonTextSize = Math.max(18, Math.min(30, Math.round(h * 0.26)));
-        setUiTextSize(buttonTextSize);
+        if (primary)  setFill(is_hovered ? C.accent2 : C.text_mid);
+        else          setFill(is_hovered ? C.text_hi  : C.text_mid);
         sketch.text(label, x, y);
         sketch.pop();
 
-        // Sélection avec camembert si hovering
-        if (is_hovering) {
-            if (!button_hover_times[button_id]) button_hover_times[button_id] = 0;
-            button_hover_times[button_id] += frame_delta_ms;
-            
-            const hover_time = button_hover_times[button_id];
-            drawPieChart(x + w/2 - 25, y - h/2 + 15, 20, hover_time, PIE_CHART_DURATION);
-
-            if (hover_time >= PIE_CHART_DURATION) {
+        if (is_hovered) {
+            if (!button_hover_times[id]) button_hover_times[id] = 0;
+            button_hover_times[id] += frame_delta_ms;
+            last_interaction_time = millis();
+            drawPie(x+w/2-12, y-h/2+10, 10, button_hover_times[id], PIE_DURATION);
+            if (button_hover_times[id] >= PIE_DURATION) {
+                button_hover_times[id] = 0;
                 callback();
-                button_hover_times[button_id] = 0; // Reset
             }
         } else {
-            button_hover_times[button_id] = 0; // Reset si pas hovering
+            button_hover_times[id] = 0;
         }
     }
 
-    function getPrimaryIndexPointer() {
-        if (hands_position.length === 0) return null;
-
-        for (let hand of hands_position) {
-            if (!hand || hand.length < 21) continue;
-
-            let index_x = hand[8][0] * width;
-            let index_y = hand[8][1] * height;
-
-            index_x = index_x - width / 2;
-            index_y = index_y - height / 2;
-
-            index_x = index_x / UI_SCALE;
-            index_y = index_y / UI_SCALE;
-
-            if (MENU_ROTATE_180) {
-                index_x = -index_x;
-                index_y = -index_y;
-            }
-
-            return { x: index_x, y: index_y };
-        }
-
-        return null;
-    }
-
-    function drawIndexCursor() {
-        const pointer = getPrimaryIndexPointer();
-        if (!pointer) return;
+    // ─── COMPOSANT : CAMEMBERT ───────────────────────────────────────────────
+    function drawPie(cx, cy, r, current_t, max_t) {
+        const progress = Math.min(1, current_t / max_t);
+        const angle    = progress * TWO_PI;
 
         sketch.push();
+        setStroke(C.border);
+        sketch.strokeWeight(1.5);
+        sketch.noFill();
+        sketch.circle(cx, cy, r*2);
+        sketch.pop();
+
+        if (angle > 0) {
+            sketch.push();
+            setFill(C.accent, 180);
+            sketch.noStroke();
+            sketch.arc(cx, cy, r*2, r*2, -HALF_PI, -HALF_PI+angle, PIE);
+            sketch.pop();
+        }
+    }
+
+    // ─── CURSEUR ─────────────────────────────────────────────────────────────
+    function drawCursor() {
+        const ptr = getPrimaryPointer();
+        if (!ptr) return;
+        sketch.push();
         sketch.noStroke();
-        sketch.fill(255);
-        sketch.circle(pointer.x, pointer.y, INDEX_CURSOR_RADIUS * 2);
+        setFill(C.text_hi, 200);
+        sketch.circle(ptr.x, ptr.y, CURSOR_R*2);
+        setFill(C.accent, 50);
+        sketch.circle(ptr.x, ptr.y, CURSOR_R*4);
         sketch.pop();
     }
 
-    function checkPointHover(rect_x, rect_y, rect_w, rect_h) {
-        const pointer = getPrimaryIndexPointer();
-        if (!pointer) return false;
-
-        const index_x = pointer.x;
-        const index_y = pointer.y;
-
-        if (index_x > rect_x && index_x < rect_x + rect_w &&
-            index_y > rect_y && index_y < rect_y + rect_h) {
-            return true;
-        }
-
-        if (index_x > rect_x - INDEX_HOVER_RADIUS && index_x < rect_x + rect_w + INDEX_HOVER_RADIUS &&
-            index_y > rect_y - INDEX_HOVER_RADIUS && index_y < rect_y + rect_h + INDEX_HOVER_RADIUS) {
-            return true;
-        }
-
-        return false;
-    }
-
-    // ========== GESTION DES GESTES ==========
+    // ─── GESTES PAUSE ────────────────────────────────────────────────────────
     function checkPauseGesture() {
         if (hands_position.length < 2) return;
+        const h1x = hands_position[0][8][0] * canvas_width;
+        const h1y = hands_position[0][8][1] * canvas_height;
+        const h2x = hands_position[1][8][0] * canvas_width;
+        const h2y = hands_position[1][8][1] * canvas_height;
 
-        // Coordonnées des deux index
-        const hand1_x = hands_position[0][8][0] * width;
-        const hand1_y = hands_position[0][8][1] * height;
-        const hand2_x = hands_position[1][8][0] * width;
-        const hand2_y = hands_position[1][8][1] * height;
-        
-        const horizontal_distance = Math.abs(hand1_x - hand2_x);
-        const vertical_distance = Math.abs(hand1_y - hand2_y);
-
-        // Si les mains sont écartées horizontalement (> 300px)
-        // ET verticalement proches (< 150px)
-        if (horizontal_distance > pause_gesture_threshold && vertical_distance < 150) {
+        if (Math.abs(h1x-h2x) > PAUSE_GESTURE_THRESHOLD && Math.abs(h1y-h2y) < 150) {
             pause_gesture_frames++;
-            if (pause_gesture_frames > 15) { // ~0.25s à 60fps
+            if (pause_gesture_frames > 15) {
                 current_screen = SCREENS.PAUSE;
                 pause_gesture_frames = 0;
             }
@@ -865,64 +958,53 @@ export const menu = new p5((sketch) => {
         }
     }
 
-    // ========== UTILITAIRES ==========
+    // ─── UTILITAIRES ─────────────────────────────────────────────────────────
     function organizeByCategories() {
         categories = {};
-        for (let app of all_apps) {
-            if (app_metadata[app]) {
-                const cat = app_metadata[app].category || "Autres";
-                if (!categories[cat]) {
-                    categories[cat] = [];
-                }
-                categories[cat].push(app);
-            }
+        for (const app of all_apps) {
+            const cat = (app_metadata[app] && app_metadata[app].category) || "Autres";
+            if (!categories[cat]) categories[cat] = [];
+            categories[cat].push(app);
         }
         category_list = Object.keys(categories).sort();
         if (category_list.length === 0) {
             category_list = ["Tous"];
-            categories["Tous"] = all_apps;
+            categories["Tous"] = [...all_apps];
         }
     }
 
-    function selectApp(app_name) {
-        selected_app_name = app_name;
+    function selectApp(name) {
+        selected_app_name = name;
         goToScreen(SCREENS.DESCRIPTION);
         audio_select.play();
     }
 
     function updateTimings() {
-        // Mettre à jour le timer d'inactivité du menu SELECT
         if (current_screen === SCREENS.SELECT) {
             const now = millis();
-            // Si une interaction a eu lieu, on reset le timer
-            if (now - last_interaction_time < 100) {
-                select_inactivity_start = now;
-            }
+            if (now - last_interaction_time < 100) select_inactivity_start = now;
         }
     }
 
-    function setupPauseGestureDetection() {
-        pause_gesture_frames = 0;
-    }
-
-    function centerCanvas() {
-        if (!sketch.selfCanvas) return;
-
-        // Keep menu canvas in the same DOM origin as other modules.
-        sketch.selfCanvas.position(0, 0);
-    }
-
-    function drawDebugInfo() {
-        // Info de debug optionnel
-        if (false) { // Mettre à true pour debug
-            sketch.push();
-            sketch.fill(100);
-            setUiTextSize(12);
-            sketch.textAlign(LEFT);
-            sketch.text(`Screen: ${current_screen}`, -width/2 + 10, -height/2 + 20);
-            sketch.text(`Hands: ${hands_position.length}`, -width/2 + 10, -height/2 + 40);
-            sketch.text(`Time since interaction: ${millis() - last_interaction_time}ms`, -width/2 + 10, -height/2 + 60);
-            sketch.pop();
+    function getPrimaryPointer() {
+        for (const hand of hands_position) {
+            if (!hand || hand.length < 21) continue;
+            let px = hand[8][0] * canvas_width  - canvas_width  / 2;
+            let py = hand[8][1] * canvas_height - canvas_height / 2;
+            px /= UI_SCALE;
+            py /= UI_SCALE;
+            if (MENU_ROTATE_180) { px = -px; py = -py; }
+            return { x: px, y: py };
         }
+        return null;
+    }
+
+    function checkRectHover(rect_x, rect_y, rect_w, rect_h) {
+        const ptr = getPrimaryPointer();
+        if (!ptr) return false;
+        return ptr.x > rect_x - INDEX_HOVER_RADIUS &&
+                ptr.x < rect_x + rect_w + INDEX_HOVER_RADIUS &&
+                ptr.y > rect_y - INDEX_HOVER_RADIUS &&
+                ptr.y < rect_y + rect_h + INDEX_HOVER_RADIUS;
     }
 });
