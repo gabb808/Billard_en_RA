@@ -17,8 +17,10 @@ let global_data = {};
 let config;
 let doCalibration = false;
 let calibrationData;
-let calibrationMatrix;
+let calibrationMatrixTopLeft;
+let calibrationMatrixCentered;
 const calibrationBypassModules = new Set();
+const centeredCoordinateModules = new Set(["menu", "show_hands"]);
 // Keep runtime projection aligned with calibration_data.json without extra transforms.
 const rotateDisplay180 = false;
 const alreadyRotatedModules = new Set(["triangles_full_lesson", "triangles_short_lesson"]);
@@ -37,7 +39,16 @@ function getAdjustedOutPts(baseOutPts) {
     });
 }
 
-function getRuntimeInPts() {
+function getRuntimeInPtsTopLeft() {
+    return [
+        [0, 0],
+        [0, window.innerHeight],
+        [window.innerWidth, 0],
+        [window.innerWidth, window.innerHeight],
+    ];
+}
+
+function getRuntimeInPtsCentered() {
     const halfW = window.innerWidth / 2;
     const halfH = window.innerHeight / 2;
     return [
@@ -46,6 +57,16 @@ function getRuntimeInPts() {
         [halfW, -halfH],
         [halfW, halfH],
     ];
+}
+
+function rebuildCalibrationMatrices() {
+    if (!doCalibration || !calibrationData || !calibrationData.outpts) return;
+
+    const outPts = getAdjustedOutPts(calibrationData.outpts);
+    calibrationMatrixTopLeft = new ProjectionMatrix(outPts, getRuntimeInPtsTopLeft());
+    calibrationMatrixCentered = new ProjectionMatrix(outPts, getRuntimeInPtsCentered());
+    calibrationMatrixTopLeft.edit = true;
+    calibrationMatrixCentered.edit = true;
 }
 
 function preload() {
@@ -65,14 +86,7 @@ function setup() {
     canvas = createCanvas(window.innerWidth, window.innerHeight);
     frameRate(120);
 
-    if(doCalibration) {
-        const outPts = getAdjustedOutPts(calibrationData.outpts);
-        calibrationMatrix = new ProjectionMatrix(
-            outPts,
-            getRuntimeInPts()
-        );
-        calibrationMatrix.edit = true;
-    }
+    rebuildCalibrationMatrices();
 }
 
 
@@ -101,7 +115,12 @@ function draw() {
                 }
 
                 if(doCalibration && !calibrationBypassModules.has(name)) {
-                    calibrationMatrix.apply(module, 2);
+                    const matrix = centeredCoordinateModules.has(name)
+                        ? calibrationMatrixCentered
+                        : calibrationMatrixTopLeft;
+                    if (matrix) {
+                        matrix.apply(module, 2);
+                    }
                 }
 
                 // module.clear();
@@ -118,12 +137,7 @@ function draw() {
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
-
-    if (doCalibration && calibrationData && calibrationData.outpts) {
-        const outPts = getAdjustedOutPts(calibrationData.outpts);
-        calibrationMatrix = new ProjectionMatrix(outPts, getRuntimeInPts());
-        calibrationMatrix.edit = true;
-    }
+    rebuildCalibrationMatrices();
 }
 
 function record_performance(module_name, time) {

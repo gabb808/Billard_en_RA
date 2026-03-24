@@ -81,6 +81,7 @@ export const menu = new p5((sketch) => {
     const MENU_ROTATE_180 = true;
     const INDEX_HOVER_RADIUS = 40;
     const HAND_HOVER_RADIUS = 70;
+    const INDEX_CURSOR_RADIUS = 10;
     const BUTTON_HITBOX_PADDING = 18;
     const CELL_HITBOX_PADDING = 20;
 
@@ -182,6 +183,7 @@ export const menu = new p5((sketch) => {
             sketch.rotate(PI);
         }
         drawScreenWithTransition();
+        drawIndexCursor();
         sketch.pop();
 
         // Debug info
@@ -304,7 +306,7 @@ export const menu = new p5((sketch) => {
         sketch.push();
         sketch.fill(150);
         sketch.textAlign(CENTER);
-        sketch.textSize(18);
+        sketch.textSize(24);
         sketch.text("Passez votre main au-dessus du bouton START pour continuer", 0, height/2 - 50);
         sketch.pop();
     }
@@ -329,14 +331,14 @@ export const menu = new p5((sketch) => {
             sketch.push();
             sketch.fill(255, 100, 100);
             sketch.textAlign(CENTER);
-            sketch.textSize(16);
+            sketch.textSize(22);
             sketch.text(`Retour à l'accueil dans ${Math.ceil(timeRemaining / 1000)}s`, 0, height/2 - 20);
             sketch.pop();
         }
     }
 
     function drawCategoryBanner() {
-        const banner_height = 80;
+        const banner_height = 130;
         const banner_y = -height/2 + banner_height/2;
 
         sketch.push();
@@ -349,14 +351,14 @@ export const menu = new p5((sketch) => {
         sketch.push();
         sketch.fill(200, 220, 255);
         sketch.textAlign(CENTER);
-        sketch.textSize(24);
-        sketch.text(`Catégorie: ${current_cat}`, 0, banner_y - 15);
+        sketch.textSize(34);
+        sketch.text(`Catégorie: ${current_cat}`, 0, banner_y - 20);
         sketch.pop();
 
         // Boutons navigation catégories (gauche/droite)
-        const btn_size = 50;
-        const left_btn_x = -width/2 + 60;
-        const right_btn_x = width/2 - 60;
+        const btn_size = 90;
+        const left_btn_x = -width/2 + 90;
+        const right_btn_x = width/2 - 90;
 
         drawButton(left_btn_x, banner_y, btn_size, btn_size, "◀", () => {
             current_category_idx = max(0, current_category_idx - 1);
@@ -446,13 +448,20 @@ export const menu = new p5((sketch) => {
         sketch.push();
         sketch.fill(255);
         sketch.textAlign(CENTER, CENTER);
-        sketch.textSize(20);
-        sketch.text(app_meta.icon || "📱", x, y - 15);
-        sketch.textSize(14);
-        sketch.text(app_meta.name || app_name, x, y + 20);
+        const icon_label = (app_meta.name || app_name)
+            .split(" ")
+            .map((w) => w[0] || "")
+            .join("")
+            .slice(0, 2)
+            .toUpperCase();
+        sketch.textSize(34);
+        sketch.text(icon_label || "AP", x, y - 18);
+        sketch.textSize(22);
+        sketch.text(app_meta.name || app_name, x, y + 28);
         if (is_running) {
             sketch.fill(100, 200, 100);
-            sketch.text("(Actif)", x, y + 40);
+            sketch.textSize(16);
+            sketch.text("(Actif)", x, y + 52);
         }
         sketch.pop();
 
@@ -670,7 +679,7 @@ export const menu = new p5((sketch) => {
         sketch.push();
         sketch.fill(255);
         sketch.textAlign(CENTER, CENTER);
-        sketch.textSize(18);
+        sketch.textSize(24);
         sketch.text(label, x, y);
         sketch.pop();
 
@@ -691,68 +700,61 @@ export const menu = new p5((sketch) => {
         }
     }
 
-    function checkPointHover(rect_x, rect_y, rect_w, rect_h) {
-        if (hands_position.length === 0) return false;
+    function getPrimaryIndexPointer() {
+        if (hands_position.length === 0) return null;
 
-        // Itérer sur toutes les mains détectées
         for (let hand of hands_position) {
             if (!hand || hand.length < 21) continue;
 
-            // Utiliser l'index (doigt pointeur) de la main
-            // Les coordonnées sont normalisées (0-1)
             let index_x = hand[8][0] * width;
             let index_y = hand[8][1] * height;
 
-            // Convertir pour le système de coordonnées WEBGL (-width/2 à width/2)
-            index_x = index_x - width/2;
-            index_y = index_y - height/2;
+            index_x = index_x - width / 2;
+            index_y = index_y - height / 2;
 
-            // Le rendu UI est réduit via scale(UI_SCALE), on remonte en coordonnées UI logiques.
             index_x = index_x / UI_SCALE;
             index_y = index_y / UI_SCALE;
 
-            // Le menu est visuellement retourne de 180 deg.
             if (MENU_ROTATE_180) {
                 index_x = -index_x;
                 index_y = -index_y;
             }
 
-            // Priorité absolue: index dans le rectangle
-            if (index_x > rect_x && index_x < rect_x + rect_w &&
-                index_y > rect_y && index_y < rect_y + rect_h) {
-                return true;
-            }
-
-            // Tolérance autour de l'index (hitbox plus large)
-            if (index_x > rect_x - INDEX_HOVER_RADIUS && index_x < rect_x + rect_w + INDEX_HOVER_RADIUS &&
-                index_y > rect_y - INDEX_HOVER_RADIUS && index_y < rect_y + rect_h + INDEX_HOVER_RADIUS) {
-                return true;
-            }
-
-            // Fallback main: centre de paume pour compenser les tremblements/occlusions
-            let palm_x = hand[0][0] * width;
-            let palm_y = hand[0][1] * height;
-            
-            // Convertir pour le système de coordonnées WEBGL (-width/2 à width/2)
-            palm_x = palm_x - width/2;
-            palm_y = palm_y - height/2;
-
-            // Conversion vers le même repère logique que les éléments UI dessinés.
-            palm_x = palm_x / UI_SCALE;
-            palm_y = palm_y / UI_SCALE;
-
-            if (MENU_ROTATE_180) {
-                palm_x = -palm_x;
-                palm_y = -palm_y;
-            }
-
-            if (palm_x > rect_x - HAND_HOVER_RADIUS && palm_x < rect_x + rect_w + HAND_HOVER_RADIUS &&
-                palm_y > rect_y - HAND_HOVER_RADIUS && palm_y < rect_y + rect_h + HAND_HOVER_RADIUS) {
-                return true;
-            }
+            return { x: index_x, y: index_y };
         }
 
-        return false; // Aucune main n'est au-dessus
+        return null;
+    }
+
+    function drawIndexCursor() {
+        const pointer = getPrimaryIndexPointer();
+        if (!pointer) return;
+
+        sketch.push();
+        sketch.noStroke();
+        sketch.fill(255);
+        sketch.circle(pointer.x, pointer.y, INDEX_CURSOR_RADIUS * 2);
+        sketch.pop();
+    }
+
+    function checkPointHover(rect_x, rect_y, rect_w, rect_h) {
+        const pointer = getPrimaryIndexPointer();
+        if (!pointer) return false;
+
+        const index_x = pointer.x;
+        const index_y = pointer.y;
+
+        if (index_x > rect_x && index_x < rect_x + rect_w &&
+            index_y > rect_y && index_y < rect_y + rect_h) {
+            return true;
+        }
+
+        if (index_x > rect_x - INDEX_HOVER_RADIUS && index_x < rect_x + rect_w + INDEX_HOVER_RADIUS &&
+            index_y > rect_y - INDEX_HOVER_RADIUS && index_y < rect_y + rect_h + INDEX_HOVER_RADIUS) {
+            return true;
+        }
+
+        return false;
     }
 
     // ========== GESTION DES GESTES ==========
