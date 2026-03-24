@@ -454,14 +454,22 @@ cv2.imshow('Pool',test_2)
 #        [-1.58822878e-06,  7.31531798e-07,  1.00000000e+00]])
 
 outpts = []
-for x,y in screen_coords:
-    x = (projection_matrix[0][0] * x + projection_matrix[0][1] * y + projection_matrix[0][2]) / (projection_matrix[2][0] * x + projection_matrix[2][1] * y + projection_matrix[2][2])
-    y = (projection_matrix[1][0] * x + projection_matrix[1][1] * y + projection_matrix[1][2]) / (projection_matrix[2][0] * x + projection_matrix[2][1] * y + projection_matrix[2][2])
-    x -= 960
-    y -= 540
-    x = (camera_distortion[0][0] * x + camera_distortion[0][1] * y + camera_distortion[0][2]) / (camera_distortion[2][0] * x + camera_distortion[2][1] * y + camera_distortion[2][2])
-    y = (camera_distortion[1][0] * x + camera_distortion[1][1] * y + camera_distortion[1][2]) / (camera_distortion[2][0] * x + camera_distortion[2][1] * y + camera_distortion[2][2])
-    outpts.append([int(x),int(y)])
+for sx, sy in screen_coords:
+    # Projection perspective: calculer x/y avec les coordonnees d'origine (sx, sy)
+    pden = projection_matrix[2][0] * sx + projection_matrix[2][1] * sy + projection_matrix[2][2]
+    px = (projection_matrix[0][0] * sx + projection_matrix[0][1] * sy + projection_matrix[0][2]) / pden
+    py = (projection_matrix[1][0] * sx + projection_matrix[1][1] * sy + projection_matrix[1][2]) / pden
+
+    # Passage dans le repere centre ecran
+    cx = px - 960
+    cy = py - 540
+
+    # Distorsion camera: meme principe, ne pas reutiliser x modifie pour calculer y
+    cden = camera_distortion[2][0] * cx + camera_distortion[2][1] * cy + camera_distortion[2][2]
+    dx = (camera_distortion[0][0] * cx + camera_distortion[0][1] * cy + camera_distortion[0][2]) / cden
+    dy = (camera_distortion[1][0] * cx + camera_distortion[1][1] * cy + camera_distortion[1][2]) / cden
+
+    outpts.append([int(dx), int(dy)])
 outpts = np.float32(outpts)    
 
 ############### Export Data in json file ###############
