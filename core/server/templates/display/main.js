@@ -18,6 +18,7 @@ let config;
 let doCalibration = false;
 let calibrationData;
 let calibrationMatrix;
+const calibrationBypassModules = new Set(["menu"]);
 
 function preload() {
     let url = getURLPath();
@@ -58,7 +59,7 @@ function draw() {
                 catch_error(e, module.name, "Update error", true);
             }
             try {
-                if(doCalibration) {
+                if(doCalibration && !calibrationBypassModules.has(name)) {
                     module.push();
                     calibrationMatrix.apply(module, 2);
                     // module.clear();
