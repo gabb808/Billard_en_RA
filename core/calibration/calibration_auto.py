@@ -5,6 +5,13 @@ import cv2
 from cv2 import aruco
 from itertools import permutations  
 import json
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+HOME_DIR = REPO_ROOT / "home"
+CALIBRATION_JSON_PATH = HOME_DIR / "calibration_data.json"
+CONFIG_JSON_PATH = HOME_DIR / "config.json"
+CALIBRATION_DIR = REPO_ROOT / "core" / "calibration"
 
 projected_coords = [[450,500],[450,800], [1300, 550], [1350,850]]
 #projected_coords = [[400,300],[400,780],[1520,300],[1520,780]] #Original test coords
@@ -34,17 +41,20 @@ cv2.setWindowProperty("Pool", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 CAM_NUMBER = 2 #default
 try:
-    with open("home/config.json", "r") as f:
+    with CONFIG_JSON_PATH.open("r", encoding="utf-8") as f:
                     config = json.load(f)
                     if ("camera" in config and "number" in config["camera"]):
                         CAM_NUMBER = config["camera"]["number"]
 except:
     print("No config file found, using default camera number")
 
-with open("home/calibration_data.json", "r") as f:
-    data = json.load(f)
-
-camera_distortion = np.float32(data["camera_distortion"])
+if CALIBRATION_JSON_PATH.exists():
+    with CALIBRATION_JSON_PATH.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    camera_distortion = np.float32(data["camera_distortion"])
+else:
+    print("No calibration data found, using identity camera distortion")
+    camera_distortion = np.eye(3, dtype=np.float32)
 
 def get_frame():
 
@@ -246,10 +256,10 @@ frame_camera=background.copy()
 def drawArucoFrame():
     #place aruco patters on images at projected_coords coordinates
     arucoFrame=np.full((1080,1920,3), 255,np.uint8)
-    aruco0 = cv2.imread("core/calibration/aruco0.png")
-    aruco1 = cv2.imread("core/calibration/aruco1.png")
-    aruco2 = cv2.imread("core/calibration/aruco2.png")
-    aruco3 = cv2.imread("core/calibration/aruco3.png")
+    aruco0 = cv2.imread(str(CALIBRATION_DIR / "aruco0.png"))
+    aruco1 = cv2.imread(str(CALIBRATION_DIR / "aruco1.png"))
+    aruco2 = cv2.imread(str(CALIBRATION_DIR / "aruco2.png"))
+    aruco3 = cv2.imread(str(CALIBRATION_DIR / "aruco3.png"))
     # aruco4 = cv2.imread("core/calibration/aruco4.png")
     # aruco5 = cv2.imread("core/calibration/aruco5.png")
 
@@ -467,7 +477,7 @@ d_information={"projection_matrix": projection_matrix,
 
 d_information={k:v.tolist() for k,v in d_information.items()}
 
-with open('home/calibration_data.json', 'w') as f:
+with CALIBRATION_JSON_PATH.open('w', encoding='utf-8') as f:
     json.dump(d_information, f, indent=4)
 
 print("Calibration terminée avec succès!")

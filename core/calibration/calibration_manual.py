@@ -2,6 +2,12 @@ import numpy as np
 import cv2
 from itertools import permutations  
 import json
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+HOME_DIR = REPO_ROOT / "home"
+CALIBRATION_JSON_PATH = HOME_DIR / "calibration_data.json"
+CONFIG_JSON_PATH = HOME_DIR / "config.json"
 
 l_point_test = [[450,600],[450,850],[1250,600],[1230,850]]
 #l_point_test = [[400,300],[400,780],[1520,300],[1520,780]] #Original test coords
@@ -10,7 +16,7 @@ screen_coords=[[0,0], [0,1080],[1920,0],[1920,1080]]
 ############### Setting Importation ###############
 
 try:
-    with open('home/calibration_data.json', 'r') as f:
+    with CALIBRATION_JSON_PATH.open('r', encoding='utf-8') as f:
         data = json.load(f)
 
     camera_distortion = np.float32(data["camera_distortion"])
@@ -28,7 +34,7 @@ except:
     
 CAM_NUMBER = 0 #default
 try:
-    with open("home/config.json", "r") as f:
+    with CONFIG_JSON_PATH.open("r", encoding="utf-8") as f:
         config = json.load(f)
         if ("camera" in config and "number" in config["camera"]):
             CAM_NUMBER = config["camera"]["number"]
@@ -345,7 +351,7 @@ with open('data.pkl', 'wb') as f:
 
 d_information={k:v.tolist() for k,v in d_information.items()}
 
-with open('home/calibration_data.json', 'w') as f:
+with CALIBRATION_JSON_PATH.open('w', encoding='utf-8') as f:
     json.dump(d_information, f, indent=4)
 
 print("Calibration terminée avec succès!")
