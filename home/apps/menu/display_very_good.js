@@ -1,5 +1,5 @@
 // ============================================================================
-// INTERACTIVE POOL - Menu System UX/UI Overhaul v2.2 (stabilized + larger UI)
+// INTERACTIVE POOL - Menu System UX/UI Overhaul v2.1 (stabilized rendering)
 // ============================================================================
 // Écrans: START → SELECT (Category) → DESCRIPTION → Play App
 //         Avec: PAUSE (en jeu), IDLE (inactivité), Navigation fluide
@@ -13,6 +13,7 @@ export const menu = new p5((sketch) => {
     let font, fontSmall;
     let socket = null;
 
+    // États des écrans (SCREEN_STATE)
     const SCREENS = {
         START: "start",
         SELECT: "select",
@@ -25,7 +26,7 @@ export const menu = new p5((sketch) => {
     let current_screen = SCREENS.START;
     let next_screen = null;
     let screen_transition_progress = 0;
-    let screen_transition_duration = 300;
+    let screen_transition_duration = 300; // ms
 
     // ========== VARIABLES DE TEMPS ==========
     let last_interaction_time = 0;
@@ -79,13 +80,10 @@ export const menu = new p5((sketch) => {
 
     const UI_SCALE = 0.62;
     const MENU_ROTATE_180 = true;
-
-    // Augmenté pour une meilleure lisibilité
-    const TEXT_SCALE = 1.42;
-
+    const TEXT_SCALE = 1.25;
     const INDEX_HOVER_RADIUS = 40;
     const HAND_HOVER_RADIUS = 70;
-    const INDEX_CURSOR_RADIUS = 12;
+    const INDEX_CURSOR_RADIUS = 10;
     const BUTTON_HITBOX_PADDING = 18;
     const CELL_HITBOX_PADDING = 20;
 
@@ -94,7 +92,7 @@ export const menu = new p5((sketch) => {
     const POINTER_DEADZONE = 0.8;
     const POINTER_LOST_RESET_FRAMES = 6;
     const SNAP_TO_PIXELS = true;
-    const UI_BORDER_ALPHA = 185;
+    const UI_BORDER_ALPHA = 170;
 
     let smoothed_pointer = null;
     let pointer_lost_frames = 0;
@@ -190,6 +188,7 @@ export const menu = new p5((sketch) => {
 
         updateSmoothedPointer();
 
+        // Transparent par défaut : laisse voir le jeu pendant PLAYING
         sketch.clear();
 
         if (font) {
@@ -456,11 +455,11 @@ export const menu = new p5((sketch) => {
         sketch.noStroke();
         sketch.fill(255);
         sketch.textAlign(CENTER, CENTER);
-        setUiTextSize(86);
-        sketch.text("Interactive Pool", snap(0), snap(-120));
+        setUiTextSize(80);
+        sketch.text("Interactive Pool", snap(0), snap(-100));
         sketch.pop();
 
-        drawButton(0, 95, 430, 155, "START", () => {
+        drawButton(0, 100, 360, 130, "START", () => {
             goToScreen(SCREENS.SELECT);
             select_inactivity_start = millis();
             last_interaction_time = millis();
@@ -470,13 +469,13 @@ export const menu = new p5((sketch) => {
 
         sketch.push();
         sketch.noStroke();
-        sketch.fill(180);
+        sketch.fill(170);
         sketch.textAlign(CENTER);
-        setUiTextSize(26);
+        setUiTextSize(24);
         sketch.text(
             "Passez votre main au-dessus du bouton START pour continuer",
             snap(0),
-            snap(height / 2 - 70)
+            snap(height / 2 - 50)
         );
         sketch.pop();
     }
@@ -495,14 +494,14 @@ export const menu = new p5((sketch) => {
             sketch.noStroke();
             sketch.fill(255, 120, 120);
             sketch.textAlign(CENTER);
-            setUiTextSize(24);
-            sketch.text(`Retour à l'accueil dans ${Math.ceil(timeRemaining / 1000)}s`, snap(0), snap(height / 2 - 18));
+            setUiTextSize(22);
+            sketch.text(`Retour à l'accueil dans ${Math.ceil(timeRemaining / 1000)}s`, snap(0), snap(height / 2 - 20));
             sketch.pop();
         }
     }
 
     function drawCategoryBanner() {
-        const banner_height = 155;
+        const banner_height = 130;
         const banner_y = -height / 2 + banner_height / 2;
 
         sketch.push();
@@ -515,15 +514,15 @@ export const menu = new p5((sketch) => {
 
         sketch.push();
         sketch.noStroke();
-        sketch.fill(220, 232, 255);
+        sketch.fill(200, 220, 255);
         sketch.textAlign(CENTER);
-        setUiTextSize(38);
-        sketch.text(`Catégorie: ${current_cat}`, snap(0), snap(banner_y - 16));
+        setUiTextSize(34);
+        sketch.text(`Catégorie: ${current_cat}`, snap(0), snap(banner_y - 20));
         sketch.pop();
 
-        const btn_size = 108;
-        const left_btn_x = -width / 2 + 105;
-        const right_btn_x = width / 2 - 105;
+        const btn_size = 90;
+        const left_btn_x = -width / 2 + 90;
+        const right_btn_x = width / 2 - 90;
 
         drawButton(left_btn_x, banner_y, btn_size, btn_size, "◀", () => {
             current_category_idx = max(0, current_category_idx - 1);
@@ -539,10 +538,10 @@ export const menu = new p5((sketch) => {
     }
 
     function drawAppGrid() {
-        const grid_start_y = -height / 2 + 175;
+        const grid_start_y = -height / 2 + 150;
         const grid_margin = 40;
         const available_width = width - (grid_margin * 2);
-        const available_height = height - 285;
+        const available_height = height - 250;
 
         const cell_width = available_width / grid_cols;
         const cell_height = available_height / grid_rows;
@@ -597,7 +596,7 @@ export const menu = new p5((sketch) => {
     }
 
     function drawAppCell(x, y, w, h, app_meta, is_running, is_hovering, hover_time, idx, app_name) {
-        const padding = 12;
+        const padding = 10;
         const inner_w = w - padding * 2;
         const inner_h = h - padding * 2;
         const inner_x = x - inner_w / 2;
@@ -607,19 +606,19 @@ export const menu = new p5((sketch) => {
         sketch.rectMode(CORNER);
 
         if (is_hovering) {
-            sketch.fill(80, 112, 156);
+            sketch.fill(76, 108, 150);
         } else {
-            sketch.fill(56, 80, 112);
+            sketch.fill(54, 76, 108);
         }
 
         if (is_running) {
             sketch.stroke(110, 210, 120, UI_BORDER_ALPHA);
         } else {
-            sketch.stroke(190, 210, 230, UI_BORDER_ALPHA);
+            sketch.stroke(180, 200, 220, UI_BORDER_ALPHA);
         }
 
         sketch.strokeWeight(3);
-        sketch.rect(snap(inner_x), snap(inner_y), snap(inner_w), snap(inner_h), 12);
+        sketch.rect(snap(inner_x), snap(inner_y), snap(inner_w), snap(inner_h), 10);
         sketch.pop();
 
         sketch.push();
@@ -634,22 +633,22 @@ export const menu = new p5((sketch) => {
             .slice(0, 2)
             .toUpperCase();
 
-        setUiTextSize(40);
-        sketch.text(icon_label || "AP", snap(x), snap(y - 26));
+        setUiTextSize(34);
+        sketch.text(icon_label || "AP", snap(x), snap(y - 18));
 
-        setUiTextSize(26);
-        sketch.text(app_meta.name || app_name, snap(x), snap(y + 20));
+        setUiTextSize(22);
+        sketch.text(app_meta.name || app_name, snap(x), snap(y + 28));
 
         if (is_running) {
             sketch.fill(110, 210, 120);
-            setUiTextSize(18);
-            sketch.text("(Actif)", snap(x), snap(y + 58));
+            setUiTextSize(16);
+            sketch.text("(Actif)", snap(x), snap(y + 52));
         }
 
         sketch.pop();
 
         if (is_hovering && hover_time > 0) {
-            drawPieChart(x, y, 44, hover_time, PIE_CHART_DURATION);
+            drawPieChart(x, y, 40, hover_time, PIE_CHART_DURATION);
         }
 
         if (hover_time >= PIE_CHART_DURATION) {
@@ -665,7 +664,7 @@ export const menu = new p5((sketch) => {
         sketch.push();
         sketch.fill(100, 200, 100, 140);
         sketch.stroke(110, 255, 120, 210);
-        sketch.strokeWeight(3);
+        sketch.strokeWeight(2.5);
         sketch.arc(snap(x), snap(y), radius * 2, radius * 2, -PI / 2, angle, PIE);
         sketch.pop();
     }
@@ -685,11 +684,11 @@ export const menu = new p5((sketch) => {
         sketch.noStroke();
         sketch.fill(23, 31, 47, 255);
         sketch.rect(
-            snap(left_x - 26),
-            snap(-height / 2 + margin - 22),
-            snap(left_section_width + 52),
-            370,
-            14
+            snap(left_x - 22),
+            snap(-height / 2 + margin - 18),
+            snap(left_section_width + 44),
+            312,
+            12
         );
         sketch.pop();
 
@@ -698,38 +697,38 @@ export const menu = new p5((sketch) => {
         sketch.fill(255);
         sketch.textAlign(LEFT, TOP);
         sketch.textStyle(BOLD);
-        setUiTextSize(42);
+        setUiTextSize(36);
         sketch.text(app_meta.name || selected_app_name, snap(left_x), snap(-height / 2 + margin));
 
         sketch.textStyle(NORMAL);
-        setUiTextSize(21);
-        sketch.textLeading(40);
-        sketch.fill(215);
+        setUiTextSize(18);
+        sketch.textLeading(34);
+        sketch.fill(210);
         const desc = app_meta.description || "Aucune description";
-        drawWrappedText(desc, left_x, -height / 2 + margin + 110, left_section_width - 16, 40);
+        drawWrappedText(desc, left_x, -height / 2 + margin + 98, left_section_width - 10, 34);
         sketch.pop();
 
         sketch.push();
         sketch.noStroke();
-        sketch.fill(108, 138, 178);
-        sketch.rect(snap(width / 4 - 120), snap(-height / 2 + margin), 240, 240, 12);
+        sketch.fill(100, 130, 170);
+        sketch.rect(snap(width / 4 - 100), snap(-height / 2 + margin), 200, 200, 10);
         sketch.fill(255);
         sketch.textAlign(CENTER, CENTER);
-        setUiTextSize(56);
-        sketch.text(app_meta.icon || "📦", snap(width / 4), snap(-height / 2 + margin + 120));
+        setUiTextSize(48);
+        sketch.text(app_meta.icon || "📦", snap(width / 4), snap(-height / 2 + margin + 100));
         sketch.pop();
 
-        const btn_y = height / 2 - 150;
+        const btn_y = height / 2 - 138;
         const btn_back_x = -width / 4;
         const btn_play_x = width / 4;
 
-        drawButton(btn_back_x, btn_y + 42, 390, 135, "◄ Retour", () => {
+        drawButton(btn_back_x, btn_y + 48, 340, 120, "◄ Retour", () => {
             goToScreen(SCREENS.SELECT);
             audio_back.currentTime = 0;
             audio_back.play();
         }, "btn_desc_back");
 
-        drawButton(btn_play_x, btn_y + 10, 280, 280, "JOUER", () => {
+        drawButton(btn_play_x, btn_y, 240, 240, "JOUER", () => {
             audio_select.currentTime = 0;
             audio_select.play();
             sketch.emit("core-app_manager-start_application", {
@@ -748,8 +747,8 @@ export const menu = new p5((sketch) => {
         sketch.rect(snap(-width / 2), snap(-height / 2), snap(width), snap(height));
         sketch.pop();
 
-        const panel_width = 860;
-        const panel_height = 760;
+        const panel_width = 800;
+        const panel_height = 700;
 
         sketch.push();
         sketch.noStroke();
@@ -778,17 +777,17 @@ export const menu = new p5((sketch) => {
         sketch.noStroke();
         sketch.fill(200, 220, 255);
         sketch.textAlign(CENTER);
-        setUiTextSize(54);
-        sketch.text("== PAUSE ==", snap(0), snap(-255));
+        setUiTextSize(48);
+        sketch.text("== PAUSE ==", snap(0), snap(-230));
         sketch.pop();
 
-        drawButton(0, -95, 500, 120, "Reprendre", () => {
+        drawButton(0, -80, 440, 100, "Reprendre", () => {
             current_screen = SCREENS.PLAYING;
             audio_select.currentTime = 0;
             audio_select.play();
         }, "btn_pause_resume");
 
-        drawButton(0, 60, 500, 120, "Redémarrer", () => {
+        drawButton(0, 60, 440, 100, "Redémarrer", () => {
             sketch.emit("core-app_manager-stop_application", {
                 application_name: selected_app_name,
             });
@@ -800,7 +799,7 @@ export const menu = new p5((sketch) => {
             audio_select.play();
         }, "btn_pause_restart");
 
-        drawButton(0, 215, 500, 120, "Menu", () => {
+        drawButton(0, 200, 440, 100, "Menu", () => {
             stopSelectedApp();
             setScreenImmediate(SCREENS.SELECT);
             last_interaction_time = millis();
@@ -817,8 +816,8 @@ export const menu = new p5((sketch) => {
         sketch.rect(snap(-width / 2), snap(-height / 2), snap(width), snap(height));
         sketch.pop();
 
-        const panel_width = 960;
-        const panel_height = 680;
+        const panel_width = 900;
+        const panel_height = 620;
 
         sketch.push();
         sketch.fill(30, 40, 60);
@@ -837,11 +836,11 @@ export const menu = new p5((sketch) => {
         sketch.noStroke();
         sketch.fill(255);
         sketch.textAlign(CENTER);
-        setUiTextSize(54);
-        sketch.text("Êtes-vous toujours là ?", snap(0), snap(-225));
+        setUiTextSize(48);
+        sketch.text("Êtes-vous toujours là ?", snap(0), snap(-210));
         sketch.pop();
 
-        drawButton(-230, 20, 360, 120, "Continuer", () => {
+        drawButton(-210, 10, 320, 100, "Continuer", () => {
             if (selected_app_name && started_apps.includes(selected_app_name)) {
                 setScreenImmediate(SCREENS.PLAYING);
             } else {
@@ -852,7 +851,7 @@ export const menu = new p5((sketch) => {
             audio_select.play();
         }, "btn_idle_continue");
 
-        drawButton(230, 20, 360, 120, "Retour Menu", () => {
+        drawButton(210, 10, 320, 100, "Retour Menu", () => {
             stopSelectedApp();
             setScreenImmediate(SCREENS.SELECT);
             last_interaction_time = millis();
@@ -868,8 +867,8 @@ export const menu = new p5((sketch) => {
         sketch.noStroke();
         sketch.fill(255, 150, 150);
         sketch.textAlign(CENTER);
-        setUiTextSize(34);
-        sketch.text(`Retour à l'accueil dans ${seconds}s`, snap(0), snap(235));
+        setUiTextSize(32);
+        sketch.text(`Retour à l'accueil dans ${seconds}s`, snap(0), snap(210));
         sketch.pop();
     }
 
@@ -892,7 +891,7 @@ export const menu = new p5((sketch) => {
             sketch.fill(70, 110, 160);
         }
 
-        sketch.stroke(220, 235, 255, UI_BORDER_ALPHA);
+        sketch.stroke(200, 220, 255, UI_BORDER_ALPHA);
         sketch.strokeWeight(3);
         sketch.rectMode(CENTER);
         sketch.rect(snap(x), snap(y), snap(w), snap(h), 8);
@@ -903,7 +902,7 @@ export const menu = new p5((sketch) => {
         sketch.noStroke();
         sketch.fill(255);
         sketch.textAlign(CENTER, CENTER);
-        const buttonTextSize = Math.max(22, Math.min(38, Math.round(h * 0.30)));
+        const buttonTextSize = Math.max(18, Math.min(30, Math.round(h * 0.26)));
         setUiTextSize(buttonTextSize);
         sketch.text(label, snap(x), snap(y));
         sketch.pop();
@@ -913,7 +912,7 @@ export const menu = new p5((sketch) => {
             button_hover_times[button_id] += frame_delta_ms;
 
             const hover_time = button_hover_times[button_id];
-            drawPieChart(x + w / 2 - 28, y - h / 2 + 18, 22, hover_time, PIE_CHART_DURATION);
+            drawPieChart(x + w / 2 - 25, y - h / 2 + 15, 20, hover_time, PIE_CHART_DURATION);
 
             if (hover_time >= PIE_CHART_DURATION) {
                 callback();
@@ -961,9 +960,9 @@ export const menu = new p5((sketch) => {
         sketch.push();
         sketch.noStroke();
         sketch.fill(255, 240);
-        sketch.circle(snap(pointer.x), snap(pointer.y), INDEX_CURSOR_RADIUS * 2.4);
+        sketch.circle(snap(pointer.x), snap(pointer.y), INDEX_CURSOR_RADIUS * 2.2);
         sketch.fill(255);
-        sketch.circle(snap(pointer.x), snap(pointer.y), INDEX_CURSOR_RADIUS * 1.3);
+        sketch.circle(snap(pointer.x), snap(pointer.y), INDEX_CURSOR_RADIUS * 1.2);
         sketch.pop();
     }
 
