@@ -112,9 +112,9 @@ export const menu = new p5((sketch) => {
         canvas_width = width;
         canvas_height = height;
 
-        // Favor stable opaque rendering under projective warping.
+        // Canvas transparent : on gardera un vrai fond opaque
+        // seulement quand le menu est visible.
         if (typeof sketch.setAttributes === "function") {
-            sketch.setAttributes("alpha", false);
             sketch.setAttributes("antialias", true);
             sketch.setAttributes("premultipliedAlpha", true);
         }
@@ -122,6 +122,10 @@ export const menu = new p5((sketch) => {
         sketch.selfCanvas = sketch
             .createCanvas(width, height, sketch.WEBGL)
             .position(0, 0);
+
+        if (sketch.selfCanvas && sketch.selfCanvas.elt && sketch.selfCanvas.elt.style) {
+            sketch.selfCanvas.elt.style.background = "transparent";
+        }
 
         centerCanvas();
 
@@ -134,6 +138,7 @@ export const menu = new p5((sketch) => {
             if (hands_position.length > 0) {
                 last_interaction_time = millis();
             }
+        
         });
 
         // Emit custom events
@@ -160,22 +165,28 @@ export const menu = new p5((sketch) => {
 
     // ========== MAIN DRAW LOOP ==========
     sketch.show = () => {
+        if (!sketch.activated) return;
+
         if (first_run) {
             first_run = false;
             last_interaction_time = millis();
         }
+    
 
         fps = Math.round(frameRate());
-        speed_regulator = 50 / fps;
+        speed_regulator = fps > 0 ? 50 / fps : 1;
         frame_delta_ms = sketch.deltaTime || (1000 / Math.max(fps, 1));
 
-        // Start from an opaque frame to avoid transparent resolve artifacts.
-        sketch.background(0, 0, 0);
+        // Canvas transparent par défaut : laisse voir le jeu quand on est en PLAYING
+        sketch.clear();
+
+        if (font) {
+            sketch.textFont(font);
+        }
         sketch.fill(255);
         sketch.stroke(255);
-        sketch.textFont(font);
 
-        // Render menu as strict 2D UI to avoid depth artifacts on flat color areas.
+        // Stabilisation du rendu WEBGL pour une UI 2D
         const canUseDepthHint =
             typeof sketch.hint === "function" &&
             typeof sketch.DISABLE_DEPTH_TEST !== "undefined" &&
@@ -186,47 +197,59 @@ export const menu = new p5((sketch) => {
         }
 
         const gl = sketch.drawingContext;
-        if (!gl_render_state_initialized && gl) {
-            // Disable hardware dithering to avoid visible hatch pattern on flat areas.
-            if (typeof gl.disable === "function" && typeof gl.DITHER !== "undefined") {
-                gl.disable(gl.DITHER);
+
+        if (gl && typeof gl.disable === "function") {
+            if (typeof gl.DEPTH_TEST !== "undefined") gl.disable(gl.DEPTH_TEST);
+            if (typeof gl.CULL_FACE !== "undefined") gl.disable(gl.CULL_FACE);
+            // On ne le fait qu'une fois pour éviter les motifs/artefacts
+            if (!gl_render_state_initialized) {
+                if (typeof gl.DITHER !== "undefined") gl.disable(gl.DITHER);
+                gl_render_state_initialized = true;
             }
-            gl_render_state_initialized = true;
         }
+
         const canToggleDepthMask = gl && typeof gl.depthMask === "function";
         if (canToggleDepthMask) {
             gl.depthMask(false);
         }
 
-        // Mise à jour du timing
         updateTimings();
 
-        // Gestion des gestes de pause (si app en cours)
         if (current_screen === SCREENS.PLAYING) {
             checkPauseGesture();
         }
 
-        // Déterminer l'écran à afficher
         determineScreen();
 
-        // Afficher l'écran avec transition douce
+        // Fond opaque plein écran uniquement quand le menu est visible
+        const menuVisible = isMenuVisible();
+        if (menuVisible) {
+            drawFullScreenMenuBackdrop(8, 12, 20);
+        }
+    
+
+        // Dessin du menu existant, sans toucher aux repères / interactions
         sketch.push();
         sketch.scale(UI_SCALE);
         if (MENU_ROTATE_180) {
             sketch.rotate(PI);
         }
+
         drawScreenWithTransition();
-        drawIndexCursor();
+
+        if (menuVisible) {
+            drawIndexCursor();
+        }
+
         sketch.pop();
 
         if (canToggleDepthMask) {
             gl.depthMask(true);
         }
+    
         if (canUseDepthHint) {
             sketch.hint(sketch.ENABLE_DEPTH_TEST);
         }
-
-        // Debug info
         drawDebugInfo();
     };
 
@@ -237,9 +260,38 @@ export const menu = new p5((sketch) => {
     function drawSolidBackground(r, g, b) {
         sketch.push();
         sketch.noStroke();
+        sketch.rectMode(CORNER);
         sketch.fill(r, g, b, 255);
-        // Slight overscan prevents 1px edge artifacts after projection transform.
-        sketch.rect(-width/2 - 6, -height/2 - 6, width + 12, height + 12);
+
+        // Léger overscan pour éviter un liseré après la projection
+        sketch.rect(
+            -sketch.width / 2 - 6,
+            -sketch.height / 2 - 6,
+            sketch.width + 12,
+            sketch.height + 12
+        );
+        sketch.pop();
+    }
+
+    function isMenuVisible() {
+        return current_screen !== SCREENS.PLAYING || next_screen !== null;
+    }
+
+    function drawFullScreenMenuBackdrop(r, g, b) {
+        sketch.push();
+        sketch.noStroke();
+        sketch.rectMode(CORNER);
+        sketch.fill(r, g, b, 255);
+
+        // IMPORTANT :
+        // ce fond est dessiné hors du sketch.scale(UI_SCALE),
+        // donc il couvre réellement tout l’écran.
+        sketch.rect(
+            -sketch.width / 2 - 16,
+            -sketch.height / 2 - 16,
+            sketch.width + 32,
+            sketch.height + 32
+        );
         sketch.pop();
     }
 
