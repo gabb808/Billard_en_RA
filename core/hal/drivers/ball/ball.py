@@ -22,6 +22,9 @@ DEFAULT_SIZE = 1920, 1080
 DEFAULT_MIN_MOMENT_00 = np.pi * 15 ** 2  # De 15 à 35 (5026 au lieu de 706 pixels)
 DEFAULT_MIN_DISTANCE = 15  # De 10 à 25 pour être plus strict sur la circularité
 
+MIN_AREA = int(np.pi * 12**2)   # ≈ 452
+MAX_AREA = int(np.pi * 28**2)   # ≈ 2463
+
 
 @dataclass
 class Camera:
@@ -56,6 +59,25 @@ def detect_balls(bkg: np.ndarray, frame: np.ndarray, camera: Camera) -> list(tup
     _, frame = cv2.threshold(frame, 100, 255, cv2.THRESH_BINARY)
 
     contours, _ = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area < MIN_AREA or area > MAX_AREA:
+            continue
+
+        perimeter = cv2.arcLength(contour, True)
+        if perimeter == 0:
+            continue
+
+        circularity = 4 * np.pi * area / (perimeter * perimeter)
+        if circularity < 0.65:
+            continue
+
+        x, y, w, h = cv2.boundingRect(contour)
+        ratio = w / float(h)
+        if ratio < 0.75 or ratio > 1.25:
+            continue
+
+    # ici contour accepté comme boule potentiell
     moments = list(map(cv2.moments, contours))
 
     balls = []
