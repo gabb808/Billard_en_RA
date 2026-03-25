@@ -53,7 +53,7 @@ def detect_balls(bkg: np.ndarray, frame: np.ndarray, camera: Camera) -> list(tup
     # cv2.imwrite("home/warped.jpg", frame) #check calibration_data.json if looks wrong
     frame = cv2.GaussianBlur(frame, (5, 5), 0)
     # Augmenté threshold de 100 à 150 pour éviter la sensibilité excessive
-    _, frame = cv2.threshold(frame, 80, 255, cv2.THRESH_BINARY)
+    _, frame = cv2.threshold(frame, 50, 255, cv2.THRESH_BINARY)
 
     contours, _ = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     moments = list(map(cv2.moments, contours))
