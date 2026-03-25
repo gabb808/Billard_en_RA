@@ -85,7 +85,7 @@ function preload() {
 
 function setup() {
     canvas = createCanvas(window.innerWidth, window.innerHeight);
-    frameRate(120);
+    frameRate(60);
 
     rebuildCalibrationMatrices();
 }
