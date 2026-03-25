@@ -19,8 +19,8 @@ DEFAULT_BKG_PATH = "home/background.jpg"
 
 DEFAULT_SIZE = 1920, 1080
 # Augmenté pour éviter les trous et petites détections faux positifs
-DEFAULT_MIN_MOMENT_00 = np.pi * 35 ** 2  # De 15 à 35 (5026 au lieu de 706 pixels)
-DEFAULT_MIN_DISTANCE = 25  # De 10 à 25 pour être plus strict sur la circularité
+DEFAULT_MIN_MOMENT_00 = np.pi * 15 ** 2  # De 15 à 35 (5026 au lieu de 706 pixels)
+DEFAULT_MIN_DISTANCE = 10  # De 10 à 25 pour être plus strict sur la circularité
 
 
 @dataclass
