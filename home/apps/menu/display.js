@@ -101,9 +101,16 @@ export const menu = new p5((sketch) => {
         canvasWidth = width;
         canvasHeight = height;
 
-        sketch.selfCanvas = sketch.createCanvas(width, height).position(0, 0);
+        sketch.selfCanvas = sketch.createCanvas(width, height, sketch.WEBGL).position(0, 0);
         sketch.selfCanvas.elt.style.background = "transparent";
         sketch.selfCanvas.elt.style.imageRendering = "auto";
+
+        // projection orthographique pour garder un rendu visuellement 2D
+        sketch.ortho(
+            -width / 2, width / 2,
+            -height / 2, height / 2,
+            -5000, 5000
+        );
 
         socket = sock;
         sketch.activated = true;
@@ -113,14 +120,15 @@ export const menu = new p5((sketch) => {
             if (hands_position.length > 0) {
                 last_interaction_time = sketch.millis();
             }
+        
         });
 
         socket.on("core-app_manager-started_applications", async (data) => {
             started_apps = (data.applications || []).map((app) => app.name);
             if (selected_app_name && started_apps.includes(selected_app_name)) {
                 setScreenImmediate(SCREENS.PLAYING);
-                pause_gesture_frames = 0;
             }
+            pause_gesture_frames = 0;
         });
 
         sketch.emit = (name, data) => {
@@ -134,15 +142,33 @@ export const menu = new p5((sketch) => {
 
     sketch.windowResized = () => {
         if (!sketch.selfCanvas) return;
+
         sketch.resizeCanvas(window.innerWidth, window.innerHeight);
         canvasWidth = window.innerWidth;
         canvasHeight = window.innerHeight;
+
+        sketch.ortho(
+            -canvasWidth / 2, canvasWidth / 2,
+            -canvasHeight / 2, canvasHeight / 2,
+            -5000, 5000
+        );
     };
 
     sketch.show = () => {
         if (!sketch.activated) return;
 
         sketch.clear();
+
+        // neutraliser au maximum les effets WEBGL gênants
+        const gl = sketch.drawingContext;
+        if (gl && typeof gl.disable === "function") {
+            if (typeof gl.DEPTH_TEST !== "undefined") gl.disable(gl.DEPTH_TEST);
+            if (typeof gl.CULL_FACE !== "undefined") gl.disable(gl.CULL_FACE);
+            if (typeof gl.DITHER !== "undefined") gl.disable(gl.DITHER);
+            if (typeof gl.depthMask === "function") gl.depthMask(false);
+        }
+    
+
         sketch.noStroke();
         if (font) sketch.textFont(font);
         sketch.textStyle(sketch.NORMAL);
@@ -160,12 +186,16 @@ export const menu = new p5((sketch) => {
         }
 
         sketch.push();
-        sketch.translate(sketch.width / 2, sketch.height / 2);
+
+        // IMPORTANT :
+        // en WEBGL, l'origine est déjà au centre
+        // donc on NE remet PAS translate(width/2, height/2)
         sketch.scale(UI_SCALE);
+
         if (MENU_ROTATE_180) {
             sketch.rotate(sketch.PI);
         }
-
+        
         drawSceneBackground();
 
         switch (current_screen) {
