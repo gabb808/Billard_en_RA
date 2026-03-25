@@ -1,17 +1,36 @@
 {
-    "name" : "Interactive Pool",
+    "name": "Interactive Pool",
     "camera": {
-        "number":0,
-        "type" : "standard",
+        "number": 0,
+        "type": "standard",
         "width": 1920,
         "height": 1080,
         "flip": false
     },
     "applications": {
-        "startup": ["show_hands", "menu", "balls"],
+        "startup": [
+            "show_hands",
+            "menu",
+            "balls"
+        ],
         "disabled": [],
-        "menu_control": ["rabbits_game", "affine", "triangles_remarkable_lines", "triangles_full_lesson", "triangles_short_lesson"],
-        "no_menu_tutorial_gif" : ["affine", "triangles_remarkable_lines", "triangles_full_lesson", "triangles_short_lesson"]
+        "menu_control": [
+            "rabbits_game",
+            "affine",
+            "vector_path",
+            "vector_link",
+            "triangles_remarkable_lines",
+            "triangles_full_lesson",
+            "triangles_short_lesson"
+        ],
+        "no_menu_tutorial_gif": [
+            "affine",
+            "triangles_remarkable_lines",
+            "triangles_full_lesson",
+            "triangles_short_lesson",
+            "vector_path",
+            "vector_link"
+        ]
     },
     "app_metadata": {
         "rabbits_game": {
@@ -52,6 +71,22 @@
             "category": "Éducation",
             "icon": "⚡",
             "color": "#B8E986",
+            "enabled": true
+        },
+        "vector_path": {
+            "name": "Vecteurs — Suivre la flèche",
+            "description": "Exercice de trajectoire : stabilisez une boule, observez la flèche cible, puis tirez-la en restant dans le couloir lumineux jusqu’à l’arrivée.",
+            "category": "Mathématiques",
+            "icon": "↗",
+            "color": "#49D4FF",
+            "enabled": true
+        },
+        "vector_link": {
+            "name": "Vecteurs — Construire AB",
+            "description": "Exercice de reproduction de vecteur : placez deux boules stables, gardez A fixe puis déplacez B jusqu’à l’extrémité de la flèche affichée.",
+            "category": "Mathématiques",
+            "icon": "→",
+            "color": "#66F6A2",
             "enabled": true
         }
     },

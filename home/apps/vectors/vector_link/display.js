@@ -1,3 +1,13 @@
+import {
+    VECTOR_THEME,
+    drawArrow,
+    drawBallLabel,
+    drawBallOutline,
+    drawHeaderBadge,
+    drawStatusPanel,
+    drawTargetRings,
+} from "./components/ui.js";
+
 const TABLE_WIDTH = 1920;
 const TABLE_HEIGHT = 1080;
 const TABLE_MARGIN = 120;
@@ -85,9 +95,10 @@ export const vector_link = new p5((sketch) => {
 
     let ballsData = [];
     let detectorFps = "0";
+    let uiFont = null;
 
-    let state = "waiting_two_balls"; // waiting_two_balls -> preview -> solving -> result
-    let message = "Place deux boules sur la table pour construire le vecteur.";
+    let state = "waiting_two_balls";
+    let message = "Place deux boules sur la table pour construire le vecteur AB.";
 
     let anchorBall = null;
     let trackedBall = null;
@@ -99,6 +110,10 @@ export const vector_link = new p5((sketch) => {
     let challenge = null;
     let result = null;
     let resultShownAt = 0;
+
+    sketch.preload = () => {
+        uiFont = loadFont("/gosai/pool/core/server/assets/FallingSky-JKwK.otf");
+    };
 
     sketch.set = (width, height, socket) => {
         sketch.selfCanvas = sketch
@@ -119,9 +134,7 @@ export const vector_link = new p5((sketch) => {
 
     sketch.resume = () => {};
     sketch.pause = () => {};
-
-    sketch.windowResized = () =>
-        sketch.resizeCanvas(window.innerWidth, window.innerHeight);
+    sketch.windowResized = () => sketch.resizeCanvas(window.innerWidth, window.innerHeight);
 
     sketch.keyPressed = () => {
         if (sketch.key === "r" || sketch.key === "R") {
@@ -157,7 +170,7 @@ export const vector_link = new p5((sketch) => {
         }
 
         if (state === "preview") {
-            message = "Déplace la boule B jusqu’à l’extrémité du vecteur affiché depuis A.";
+            message = "Déplace la boule B jusqu’à l’extrémité de la flèche affichée depuis A.";
 
             if (distance(trackedBall, challenge.initialBallB) > MOVE_START_DISTANCE) {
                 movedEnough = true;
@@ -168,9 +181,7 @@ export const vector_link = new p5((sketch) => {
         }
 
         if (state === "solving") {
-            const stepDistance = previousTrackedBall
-                ? distance(trackedBall, previousTrackedBall)
-                : 0;
+            const stepDistance = previousTrackedBall ? distance(trackedBall, previousTrackedBall) : 0;
 
             if (stepDistance < STOP_THRESHOLD) {
                 if (stableSince === 0) {
@@ -185,7 +196,7 @@ export const vector_link = new p5((sketch) => {
         }
 
         if (state === "result") {
-            message = "Appuie sur R pour relancer, N pour un nouveau vecteur.";
+            message = "Score affiché. Attends la prochaine stabilisation ou appuie sur N/R pour debug.";
             if (sketch.millis() - resultShownAt > RESULT_TIME_MS) {
                 resetRound(false);
             }
@@ -313,11 +324,7 @@ export const vector_link = new p5((sketch) => {
         ];
 
         const maxLength = computeMaxLength(origin);
-        const length = clamp(
-            sketch.random(MIN_VECTOR_LENGTH, MAX_VECTOR_LENGTH),
-            MIN_VECTOR_LENGTH,
-            maxLength
-        );
+        const length = clamp(sketch.random(MIN_VECTOR_LENGTH, MAX_VECTOR_LENGTH), MIN_VECTOR_LENGTH, maxLength);
 
         let attempts = 0;
         let angle = 0;
@@ -369,8 +376,7 @@ export const vector_link = new p5((sketch) => {
         const endError = distance(trackedBall, challenge.end);
         const angleError = angleBetween(targetVector, actualVector) * (180 / Math.PI);
         const normError = Math.abs(
-            Math.sqrt(actualVector.x * actualVector.x + actualVector.y * actualVector.y) -
-            challenge.length
+            Math.sqrt(actualVector.x * actualVector.x + actualVector.y * actualVector.y) - challenge.length
         );
 
         const endpointScore = scoreFromError(endError, TARGET_TOLERANCE);
@@ -393,19 +399,10 @@ export const vector_link = new p5((sketch) => {
         resultShownAt = sketch.millis();
     }
 
-    function drawArrow(start, end, color, weight = 8) {
-        const angle = Math.atan2(end.y - start.y, end.x - start.x);
-        const arrowSize = 26;
-
-        sketch.push();
-        sketch.stroke(color[0], color[1], color[2]);
-        sketch.strokeWeight(weight);
-        sketch.line(start.x, start.y, end.x, end.y);
-        sketch.translate(end.x, end.y);
-        sketch.rotate(angle);
-        sketch.line(0, 0, -arrowSize, -arrowSize * 0.55);
-        sketch.line(0, 0, -arrowSize, arrowSize * 0.55);
-        sketch.pop();
+    function scoreColor(total) {
+        if (total >= 75) return VECTOR_THEME.green;
+        if (total >= 45) return VECTOR_THEME.yellow;
+        return VECTOR_THEME.red;
     }
 
     function drawBalls() {
@@ -413,107 +410,64 @@ export const vector_link = new p5((sketch) => {
             const isAnchor = anchorBall && distance(ball, anchorBall) < BALL_RADIUS * 1.2;
             const isTracked = trackedBall && distance(ball, trackedBall) < BALL_RADIUS * 1.2;
 
-            sketch.push();
-            sketch.noFill();
             if (isAnchor) {
-                sketch.stroke(90, 255, 140);
-                sketch.strokeWeight(6);
+                drawBallOutline(sketch, ball.x, ball.y, BALL_RADIUS, VECTOR_THEME.green, 6);
             } else if (isTracked) {
-                sketch.stroke(255, 110, 110);
-                sketch.strokeWeight(6);
+                drawBallOutline(sketch, ball.x, ball.y, BALL_RADIUS, VECTOR_THEME.red, 6);
             } else {
-                sketch.stroke(255, 255, 255, 120);
-                sketch.strokeWeight(3);
+                drawBallOutline(sketch, ball.x, ball.y, BALL_RADIUS, VECTOR_THEME.whiteBall, 3, 120);
             }
-            sketch.circle(ball.x, ball.y, BALL_RADIUS * 2);
-            sketch.pop();
         }
 
         if (anchorBall) {
-            sketch.push();
-            sketch.noStroke();
-            sketch.fill(90, 255, 140);
-            sketch.textAlign(sketch.CENTER, sketch.CENTER);
-            sketch.textSize(28);
-            sketch.text("A", anchorBall.x, anchorBall.y - 52);
-            sketch.pop();
+            drawBallLabel(sketch, anchorBall.x, anchorBall.y, "A", VECTOR_THEME.green);
         }
-
         if (trackedBall) {
-            sketch.push();
-            sketch.noStroke();
-            sketch.fill(255, 110, 110);
-            sketch.textAlign(sketch.CENTER, sketch.CENTER);
-            sketch.textSize(28);
-            sketch.text("B", trackedBall.x, trackedBall.y - 52);
-            sketch.pop();
+            drawBallLabel(sketch, trackedBall.x, trackedBall.y, "B", VECTOR_THEME.red);
         }
     }
 
     function drawChallenge() {
         if (!challenge) return;
 
-        sketch.push();
-        sketch.noFill();
-        sketch.stroke(70, 210, 255);
-        sketch.strokeWeight(4);
-        sketch.circle(challenge.end.x, challenge.end.y, TARGET_RADIUS * 2);
-        sketch.circle(challenge.end.x, challenge.end.y, TARGET_RADIUS * 3.5);
-        sketch.pop();
-
-        drawArrow(challenge.origin, challenge.end, [70, 210, 255], 8);
+        drawTargetRings(sketch, challenge.end.x, challenge.end.y, VECTOR_THEME.cyan, [42, 76]);
+        drawArrow(sketch, challenge.origin, challenge.end, [...VECTOR_THEME.cyan, 255], 8);
 
         if (trackedBall) {
-            drawArrow(challenge.origin, trackedBall, [255, 110, 110], 5);
+            drawArrow(sketch, challenge.origin, trackedBall, [...VECTOR_THEME.red, 230], 5);
         }
     }
 
-    function drawStatusPanel() {
-        sketch.push();
-        sketch.fill(0, 0, 0, 170);
-        sketch.noStroke();
-        sketch.rect(35, 35, 700, 250, 18);
+    function drawStatusPanelSafe() {
+        const metrics = [
+            `Détection des boules : ${Math.round(Number(detectorFps) || 0)} FPS`,
+            "A = origine fixe   •   B = boule à déplacer",
+            result ? `Écart cible : ${result.endError}px   •   Angle : ${result.angleError}°` : "Debug clavier : R relance la manche, N génère un nouveau vecteur.",
+        ];
 
-        sketch.fill(255);
-        sketch.textSize(28);
-        sketch.textAlign(sketch.LEFT, sketch.TOP);
-        sketch.text("Exercice vecteur — construire AB", 60, 55);
+        drawStatusPanel(sketch, {
+            x: 34,
+            y: 34,
+            w: 760,
+            h: 252,
+            title: "Vecteurs — Construire AB",
+            subtitle: "Exercice de reproduction de vecteur",
+            message,
+            metrics,
+            footer: result ? "Attends la prochaine stabilisation pour recommencer." : "Maintiens deux boules visibles pour lancer automatiquement un défi.",
+            scoreText: result ? `${result.total}/100` : null,
+            scoreColor: result ? scoreColor(result.total) : VECTOR_THEME.green,
+        });
 
-        sketch.textSize(18);
-        sketch.fill(230);
-        sketch.text(message, 60, 100, 620, 65);
-        sketch.text(`Détection boules : ${Math.round(Number(detectorFps) || 0)} FPS`, 60, 170);
-        sketch.text("A = origine fixe   •   B = boule à déplacer", 60, 198);
-        sketch.text("R : relancer   •   N : nouveau vecteur", 60, 226);
-
-        if (result) {
-            sketch.textAlign(sketch.RIGHT, sketch.TOP);
-            sketch.textSize(48);
-            sketch.fill(
-                result.total >= 75
-                    ? sketch.color(90, 255, 140)
-                    : result.total >= 45
-                    ? sketch.color(255, 215, 90)
-                    : sketch.color(255, 120, 120)
-            );
-            sketch.text(`${result.total}/100`, 705, 58);
-
-            sketch.textAlign(sketch.LEFT, sketch.TOP);
-            sketch.textSize(18);
-            sketch.fill(255);
-            sketch.text(`Position finale : ${result.endpointScore}/100`, 360, 148);
-            sketch.text(`Direction : ${result.directionScore}/100`, 360, 174);
-            sketch.text(`Longueur : ${result.lengthScore}/100`, 360, 200);
-            sketch.text(`Écart cible : ${result.endError}px`, 360, 226);
-        }
-
-        sketch.pop();
+        drawHeaderBadge(sketch, TABLE_WIDTH - 250, 36, "Mode", "2 boules", VECTOR_THEME.cyan);
     }
 
     sketch.show = () => {
         sketch.clear();
+        if (uiFont) sketch.textFont(uiFont);
+
         drawBalls();
         drawChallenge();
-        drawStatusPanel();
+        drawStatusPanelSafe();
     };
 });

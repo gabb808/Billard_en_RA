@@ -1,3 +1,12 @@
+import {
+    VECTOR_THEME,
+    drawArrow,
+    drawBallOutline,
+    drawHeaderBadge,
+    drawStatusPanel,
+    drawTargetRings,
+} from "./components/ui.js";
+
 const TABLE_WIDTH = 1920;
 const TABLE_HEIGHT = 1080;
 const TABLE_MARGIN = 120;
@@ -62,9 +71,7 @@ function pointOnSegmentProjection(point, start, end) {
 }
 
 function scoreFromDistance(error, tolerance) {
-    if (tolerance <= 0) {
-        return error <= 0 ? 100 : 0;
-    }
+    if (tolerance <= 0) return error <= 0 ? 100 : 0;
     const ratio = clamp(error / tolerance, 0, 1);
     return Math.round((1 - ratio) * 100);
 }
@@ -80,20 +87,25 @@ export const vector_path = new p5((sketch) => {
 
     let ballsData = [];
     let detectorFps = "0";
+    let uiFont = null;
 
     let trackedBall = null;
     let previousTrackedBall = null;
     let trackingLostFrames = 0;
     let stableAnchorStart = 0;
 
-    let state = "waiting_ball"; // waiting_ball -> preview -> playing -> result
+    let state = "waiting_ball";
     let challenge = null;
     let path = [];
     let movingStartedAt = 0;
     let stoppedSince = 0;
     let result = null;
     let resultShownAt = 0;
-    let message = "Place une seule boule blanche sur la table.";
+    let message = "Place une boule blanche sur la table pour démarrer l'exercice.";
+
+    sketch.preload = () => {
+        uiFont = loadFont("/gosai/pool/core/server/assets/FallingSky-JKwK.otf");
+    };
 
     sketch.set = (width, height, socket) => {
         sketch.selfCanvas = sketch
@@ -114,9 +126,7 @@ export const vector_path = new p5((sketch) => {
 
     sketch.resume = () => {};
     sketch.pause = () => {};
-
-    sketch.windowResized = () =>
-        sketch.resizeCanvas(window.innerWidth, window.innerHeight);
+    sketch.windowResized = () => sketch.resizeCanvas(window.innerWidth, window.innerHeight);
 
     sketch.keyPressed = () => {
         if (sketch.key === "r" || sketch.key === "R") {
@@ -137,7 +147,7 @@ export const vector_path = new p5((sketch) => {
             challenge = null;
             path = [];
             result = null;
-            message = "Place une boule détectée au centre de la table pour démarrer.";
+            message = "Place une seule boule détectée au centre de la table pour démarrer.";
             return;
         }
 
@@ -159,10 +169,7 @@ export const vector_path = new p5((sketch) => {
             if (distanceFromOrigin > MOVEMENT_START_THRESHOLD) {
                 state = "playing";
                 movingStartedAt = sketch.millis();
-                path = [
-                    { x: challenge.origin.x, y: challenge.origin.y },
-                    { x: trackedBall.x, y: trackedBall.y },
-                ];
+                path = [{ x: challenge.origin.x, y: challenge.origin.y }, { x: trackedBall.x, y: trackedBall.y }];
             }
             return;
         }
@@ -172,9 +179,7 @@ export const vector_path = new p5((sketch) => {
                 path.push({ x: trackedBall.x, y: trackedBall.y });
             }
 
-            const stepDistance = previousTrackedBall
-                ? distance(trackedBall, previousTrackedBall)
-                : 0;
+            const stepDistance = previousTrackedBall ? distance(trackedBall, previousTrackedBall) : 0;
 
             if (stepDistance < MOVEMENT_STOP_THRESHOLD) {
                 if (stoppedSince === 0) {
@@ -189,7 +194,7 @@ export const vector_path = new p5((sketch) => {
         }
 
         if (state === "result") {
-            message = "Appuie sur R pour relancer, ou attends la prochaine stabilisation.";
+            message = "Résultat affiché. Attends la prochaine stabilisation ou utilise N/R pour debug.";
             if (sketch.millis() - resultShownAt > RESULT_TIME_MS) {
                 resetRound(false);
             }
@@ -223,10 +228,7 @@ export const vector_path = new p5((sketch) => {
             return false;
         }
 
-        if (
-            !previousTrackedBall ||
-            distance(trackedBall, previousTrackedBall) < MOVEMENT_STOP_THRESHOLD
-        ) {
+        if (!previousTrackedBall || distance(trackedBall, previousTrackedBall) < MOVEMENT_STOP_THRESHOLD) {
             if (stableAnchorStart === 0) {
                 stableAnchorStart = sketch.millis();
             }
@@ -234,10 +236,7 @@ export const vector_path = new p5((sketch) => {
             stableAnchorStart = sketch.millis();
         }
 
-        return (
-            stableAnchorStart !== 0 &&
-            sketch.millis() - stableAnchorStart > STABLE_TIME_MS
-        );
+        return stableAnchorStart !== 0 && sketch.millis() - stableAnchorStart > STABLE_TIME_MS;
     }
 
     function pickBestBall(candidates) {
@@ -303,11 +302,7 @@ export const vector_path = new p5((sketch) => {
     function buildChallengeFromBall(ball) {
         const origin = { x: ball.x, y: ball.y };
         const maxAvailableLength = computeMaxLengthFromOrigin(origin);
-        const length = clamp(
-            sketch.random(MIN_CHALLENGE_LENGTH, MAX_CHALLENGE_LENGTH),
-            MIN_CHALLENGE_LENGTH,
-            maxAvailableLength
-        );
+        const length = clamp(sketch.random(MIN_CHALLENGE_LENGTH, MAX_CHALLENGE_LENGTH), MIN_CHALLENGE_LENGTH, maxAvailableLength);
 
         const allowedAngles = [
             0,
@@ -342,23 +337,12 @@ export const vector_path = new p5((sketch) => {
         } while (!pointInsidePlayableArea(end) && attempts < 40);
 
         if (!pointInsidePlayableArea(end)) {
-            const fallbackAngle = Math.atan2(
-                TABLE_HEIGHT / 2 - origin.y,
-                TABLE_WIDTH / 2 - origin.x
-            );
+            const fallbackAngle = Math.atan2(TABLE_HEIGHT / 2 - origin.y, TABLE_WIDTH / 2 - origin.x);
 
             direction = fallbackAngle;
             end = {
-                x: clamp(
-                    origin.x + Math.cos(direction) * length,
-                    TABLE_MARGIN,
-                    TABLE_WIDTH - TABLE_MARGIN
-                ),
-                y: clamp(
-                    origin.y + Math.sin(direction) * length,
-                    TABLE_MARGIN,
-                    TABLE_HEIGHT - TABLE_MARGIN
-                ),
+                x: clamp(origin.x + Math.cos(direction) * length, TABLE_MARGIN, TABLE_WIDTH - TABLE_MARGIN),
+                y: clamp(origin.y + Math.sin(direction) * length, TABLE_MARGIN, TABLE_HEIGHT - TABLE_MARGIN),
             };
         }
 
@@ -401,49 +385,24 @@ export const vector_path = new p5((sketch) => {
     }
 
     function finishRound() {
-        if (!challenge || !trackedBall) {
-            return;
-        }
+        if (!challenge || !trackedBall) return;
 
         if (!path.length) {
             path = [{ ...challenge.origin }, { ...trackedBall }];
         }
 
-        const samples =
-            path.length > 1 ? path : [{ ...challenge.origin }, { ...trackedBall }];
+        const samples = path.length > 1 ? path : [{ ...challenge.origin }, { ...trackedBall }];
+        const projections = samples.map((point) => pointOnSegmentProjection(point, challenge.origin, challenge.end));
 
-        const projections = samples.map((point) =>
-            pointOnSegmentProjection(point, challenge.origin, challenge.end)
-        );
-
-        const averageLateralError = mean(
-            projections.map((item) => item.perpendicularDistance)
-        );
-
-        const inCorridorRatio =
-            projections.filter(
-                (item) => item.perpendicularDistance <= challenge.corridorWidth / 2
-            ).length / projections.length;
-
+        const averageLateralError = mean(projections.map((item) => item.perpendicularDistance));
+        const inCorridorRatio = projections.filter((item) => item.perpendicularDistance <= challenge.corridorWidth / 2).length / projections.length;
         const endError = distance(trackedBall, challenge.end);
-        const progress = projections.length
-            ? Math.max(...projections.map((item) => item.t))
-            : 0;
+        const progress = projections.length ? Math.max(...projections.map((item) => item.t)) : 0;
 
-        let trajectoryScore = scoreFromDistance(
-            averageLateralError,
-            challenge.corridorWidth / 2
-        );
+        let trajectoryScore = scoreFromDistance(averageLateralError, challenge.corridorWidth / 2);
+        trajectoryScore = Math.round(trajectoryScore * (0.5 + 0.5 * inCorridorRatio) * progress);
 
-        trajectoryScore = Math.round(
-            trajectoryScore * (0.5 + 0.5 * inCorridorRatio) * progress
-        );
-
-        const arrivalScore = scoreFromDistance(
-            endError,
-            Math.max(80, challenge.corridorWidth)
-        );
-
+        const arrivalScore = scoreFromDistance(endError, Math.max(80, challenge.corridorWidth));
         const total = Math.round(trajectoryScore * 0.6 + arrivalScore * 0.4);
 
         result = {
@@ -460,21 +419,6 @@ export const vector_path = new p5((sketch) => {
         resultShownAt = sketch.millis();
     }
 
-    function drawArrow(start, end, color, weight = 8) {
-        const angle = Math.atan2(end.y - start.y, end.x - start.x);
-        const arrowSize = 26;
-
-        sketch.push();
-        sketch.stroke(color[0], color[1], color[2]);
-        sketch.strokeWeight(weight);
-        sketch.line(start.x, start.y, end.x, end.y);
-        sketch.translate(end.x, end.y);
-        sketch.rotate(angle);
-        sketch.line(0, 0, -arrowSize, -arrowSize * 0.55);
-        sketch.line(0, 0, -arrowSize, arrowSize * 0.55);
-        sketch.pop();
-    }
-
     function drawCorridor() {
         if (!challenge) return;
 
@@ -485,26 +429,14 @@ export const vector_path = new p5((sketch) => {
         const ny = dx / len;
         const half = challenge.corridorWidth / 2;
 
-        const p1 = {
-            x: challenge.origin.x + nx * half,
-            y: challenge.origin.y + ny * half,
-        };
-        const p2 = {
-            x: challenge.end.x + nx * half,
-            y: challenge.end.y + ny * half,
-        };
-        const p3 = {
-            x: challenge.end.x - nx * half,
-            y: challenge.end.y - ny * half,
-        };
-        const p4 = {
-            x: challenge.origin.x - nx * half,
-            y: challenge.origin.y - ny * half,
-        };
+        const p1 = { x: challenge.origin.x + nx * half, y: challenge.origin.y + ny * half };
+        const p2 = { x: challenge.end.x + nx * half, y: challenge.end.y + ny * half };
+        const p3 = { x: challenge.end.x - nx * half, y: challenge.end.y - ny * half };
+        const p4 = { x: challenge.origin.x - nx * half, y: challenge.origin.y - ny * half };
 
         sketch.push();
         sketch.noStroke();
-        sketch.fill(51, 207, 255, 35);
+        sketch.fill(51, 207, 255, 36);
         sketch.beginShape();
         sketch.vertex(p1.x, p1.y);
         sketch.vertex(p2.x, p2.y);
@@ -521,6 +453,8 @@ export const vector_path = new p5((sketch) => {
         sketch.noFill();
         sketch.stroke(255, 92, 92);
         sketch.strokeWeight(7);
+        sketch.strokeJoin(sketch.ROUND);
+        sketch.strokeCap(sketch.ROUND);
         sketch.beginShape();
         for (const point of path) {
             sketch.vertex(point.x, point.y);
@@ -531,88 +465,53 @@ export const vector_path = new p5((sketch) => {
 
     function drawBalls() {
         for (const ball of ballsData) {
-            const isTracked =
-                trackedBall && distance(ball, trackedBall) < BALL_RADIUS * 1.2;
-
-            sketch.push();
-            sketch.stroke(
-                isTracked
-                    ? sketch.color(255, 255, 255)
-                    : sketch.color(255, 255, 255, 120)
-            );
-            sketch.strokeWeight(isTracked ? 6 : 3);
-            sketch.noFill();
-            sketch.circle(ball.x, ball.y, BALL_RADIUS * 2);
-            sketch.pop();
+            const isTracked = trackedBall && distance(ball, trackedBall) < BALL_RADIUS * 1.2;
+            if (isTracked) drawBallOutline(sketch, ball.x, ball.y, BALL_RADIUS, VECTOR_THEME.whiteBall, 6);
+            else drawBallOutline(sketch, ball.x, ball.y, BALL_RADIUS, VECTOR_THEME.whiteBall, 3, 120);
         }
     }
 
-    function drawStatusPanel() {
-        sketch.push();
-        sketch.fill(0, 0, 0, 170);
-        sketch.noStroke();
-        sketch.rect(35, 35, 650, 215, 18);
-
-        sketch.fill(255);
-        sketch.textSize(28);
-        sketch.textAlign(sketch.LEFT, sketch.TOP);
-        sketch.text("Exercice vecteur — suivre un vecteur cible", 60, 55);
-
-        sketch.textSize(18);
-        sketch.fill(230);
-        sketch.text(message, 60, 100, 600, 60);
-        sketch.text(
-            `Détection boules : ${Math.round(Number(detectorFps) || 0)} FPS`,
-            60,
-            155
-        );
-        sketch.text("R : relancer   •   N : nouveau vecteur", 60, 185);
-
-        if (result) {
-            sketch.textAlign(sketch.RIGHT, sketch.TOP);
-            sketch.textSize(48);
-            sketch.fill(
-                result.total >= 75
-                    ? sketch.color(90, 255, 140)
-                    : result.total >= 45
-                    ? sketch.color(255, 215, 90)
-                    : sketch.color(255, 120, 120)
-            );
-            sketch.text(`${result.total}/100`, 655, 58);
-
-            sketch.textAlign(sketch.LEFT, sketch.TOP);
-            sketch.textSize(18);
-            sketch.fill(255);
-            sketch.text(`Trajectoire : ${result.trajectoryScore}/100`, 360, 145);
-            sketch.text(`Arrivée : ${result.arrivalScore}/100`, 360, 170);
-            sketch.text(`Écart fin : ${result.endError}px`, 360, 195);
-        }
-
-        sketch.pop();
+    function scoreColor(total) {
+        if (total >= 75) return VECTOR_THEME.green;
+        if (total >= 45) return VECTOR_THEME.yellow;
+        return VECTOR_THEME.red;
     }
 
-    function drawTargetMarkers() {
-        if (!challenge) return;
+    function drawStatusPanelSafe() {
+        const metrics = [
+            `Détection des boules : ${Math.round(Number(detectorFps) || 0)} FPS`,
+            result ? `Précision trajectoire : ${result.trajectoryScore}/100   •   Arrivée : ${result.arrivalScore}/100` : "Une seule boule suffit pour démarrer automatiquement le défi.",
+            result ? `Progression : ${result.progress}%   •   Écart final : ${result.endError}px` : "Debug clavier : R relance la manche, N génère un nouveau vecteur.",
+        ];
 
-        sketch.push();
-        sketch.noFill();
-        sketch.stroke(90, 255, 140);
-        sketch.strokeWeight(4);
-        sketch.circle(challenge.origin.x, challenge.origin.y, BALL_RADIUS * 2 + 12);
-        sketch.circle(challenge.end.x, challenge.end.y, 40);
-        sketch.circle(challenge.end.x, challenge.end.y, 90);
-        sketch.pop();
+        drawStatusPanel(sketch, {
+            x: 34,
+            y: 34,
+            w: 770,
+            h: 252,
+            title: "Vecteurs — Suivre la flèche",
+            subtitle: "Exercice de trajectoire guidée",
+            message,
+            metrics,
+            footer: result ? "Attends la prochaine stabilisation pour recommencer." : "Place une boule, stabilise-la puis suis le couloir lumineux.",
+            scoreText: result ? `${result.total}/100` : null,
+            scoreColor: result ? scoreColor(result.total) : VECTOR_THEME.green,
+        });
+
+        drawHeaderBadge(sketch, TABLE_WIDTH - 252, 36, "Mode", "1 boule", VECTOR_THEME.cyan);
     }
 
     sketch.show = () => {
         sketch.clear();
+        if (uiFont) sketch.textFont(uiFont);
 
         drawBalls();
 
         if (challenge) {
             drawCorridor();
-            drawArrow(challenge.origin, challenge.end, [51, 207, 255], 8);
-            drawTargetMarkers();
+            drawArrow(sketch, challenge.origin, challenge.end, [...VECTOR_THEME.cyan, 255], 8);
+            drawTargetRings(sketch, challenge.origin.x, challenge.origin.y, VECTOR_THEME.green, [44]);
+            drawTargetRings(sketch, challenge.end.x, challenge.end.y, VECTOR_THEME.green, [40, 86]);
         }
 
         drawPath();
@@ -620,11 +519,11 @@ export const vector_path = new p5((sketch) => {
         if (result?.finalPosition) {
             sketch.push();
             sketch.noStroke();
-            sketch.fill(255, 92, 92);
+            sketch.fill(...VECTOR_THEME.red);
             sketch.circle(result.finalPosition.x, result.finalPosition.y, 18);
             sketch.pop();
         }
 
-        drawStatusPanel();
+        drawStatusPanelSafe();
     };
 });

@@ -4,13 +4,16 @@ from core.application import BaseApplication
 class Application(BaseApplication):
     """Vector path exercise.
 
-    Relays the detected balls to the display application.
-    The gameplay and scoring are handled client-side in display.js.
+    Relay ball detector information to the display layer.
+    The gameplay and scoring are handled in display.js.
     """
 
     def __init__(self, name, hal, server, manager):
         super().__init__(name, hal, server, manager)
         self.requires["ball"] = ["balls", "fps"]
+        self.is_exclusive = True
+        self.applications_allowed = ["menu", "show_hands", "balls"]
+        self.applications_required = ["balls"]
 
     def listener(self, source, event, data):
         super().listener(source, event, data)
