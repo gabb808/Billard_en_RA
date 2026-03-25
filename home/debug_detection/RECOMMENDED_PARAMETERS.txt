@@ -1,0 +1,10 @@
+PARAMÈTRES RECOMMANDÉS POUR ball.py
+==================================================
+
+Données réelles collectées:
+  Aire min: 1 pixels²
+  Circularité max: 7.20
+
+Recommandations:
+DEFAULT_MIN_MOMENT_00 = np.pi * 1 ** 2
+DEFAULT_MIN_DISTANCE = 9
